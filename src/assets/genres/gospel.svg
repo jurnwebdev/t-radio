@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="gs-glow" cx="50%" cy="20%" r="70%">
+      <stop offset="0%" stop-color="#0288D1" stop-opacity="0.85"/>
+      <stop offset="45%" stop-color="#01579B" stop-opacity="0.7"/>
+      <stop offset="90%" stop-color="#021329" stop-opacity="0.95"/>
+    </radialGradient>
+    <linearGradient id="gs-ray" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#81D4FA" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#0288D1" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gs-bottom" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="55%" stop-color="#000" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="400" height="240" fill="#010A14"/>
+  <rect width="400" height="240" fill="url(#gs-glow)"/>
+
+  <!-- Heavenly light rays shining down -->
+  <polygon points="200,0 120,240 160,240" fill="url(#gs-ray)" opacity="0.6"/>
+  <polygon points="200,0 240,240 280,240" fill="url(#gs-ray)" opacity="0.6"/>
+  <polygon points="200,0 175,240 225,240" fill="url(#gs-ray)" opacity="0.9"/>
+  <polygon points="100,0 30,240 70,240" fill="url(#gs-ray)" opacity="0.35"/>
+  <polygon points="300,0 330,240 370,240" fill="url(#gs-ray)" opacity="0.35"/>
+
+  <!-- Center light burst -->
+  <circle cx="200" cy="30" r="40" fill="#E1F5FE" opacity="0.4" filter="blur(10px)"/>
+  <circle cx="200" cy="30" r="12" fill="#FFF" opacity="0.8"/>
+
+  <!-- Dust / light specks -->
+  <circle cx="170" cy="70" r="2" fill="#E1F5FE" opacity="0.7"/>
+  <circle cx="230" cy="85" r="2.5" fill="#E1F5FE" opacity="0.8"/>
+  <circle cx="190" cy="110" r="1.5" fill="#E1F5FE" opacity="0.6"/>
+  <circle cx="215" cy="130" r="2" fill="#E1F5FE" opacity="0.5"/>
+
+  <!-- Congregation with open worship hands raised -->
+  <path d="M0,240 L0,185 Q30,175 60,188 Q75,160 82,140 Q85,138 88,142 Q92,168 110,185 Q135,152 144,128 Q148,125 152,130 Q156,162 175,182 Q190,148 198,120 Q202,118 206,122 Q210,158 230,182 Q250,145 258,122 Q262,120 266,124 Q270,158 290,185 Q310,150 318,128 Q322,125 326,130 Q330,165 350,188 Q375,175 400,185 L400,240 Z" fill="#010710"/>
+  
+  <!-- Worship open hands palms raised -->
+  <path d="M142,140 C138,125 138,110 142,102 C144,100 146,101 146,105 C144,115 143,128 147,140 Z" fill="#00040A"/>
+  <path d="M152,140 C156,125 156,110 152,102 C150,100 148,101 148,105 C150,115 151,128 147,140 Z" fill="#00040A"/>
+  
+  <path d="M254,135 C250,120 250,105 254,98 C256,96 258,97 258,101 C256,111 255,124 259,135 Z" fill="#00040A"/>
+  <path d="M264,135 C268,120 268,105 264,98 C262,96 260,97 260,101 C262,111 263,124 259,135 Z" fill="#00040A"/>
+
+  <!-- Dark gradient bottom -->
+  <rect width="400" height="240" fill="url(#gs-bottom)"/>
+</svg>

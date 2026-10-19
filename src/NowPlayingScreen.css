@@ -1,0 +1,447 @@
+/* ============================================================
+   NOW PLAYING FULL SCREEN — T-RADIO MOCKUP
+   ============================================================ */
+
+.hs-screen > .np-screen,
+.np-screen {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-width: 100vw !important;
+  z-index: 99999 !important;
+  background-color: #070A12 !important;
+  background-image: radial-gradient(circle at 50% 12%, rgba(245, 158, 11, 0.12) 0%, rgba(7, 10, 18, 1) 60%) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  color: #FFFFFF !important;
+}
+
+@keyframes npSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Toast */
+.np-toast {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(17, 24, 39, 0.95);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #FCD34D;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  pointer-events: none;
+  animation: npFadeToast 0.2s ease-out;
+}
+
+@keyframes npFadeToast {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Header */
+.np-header {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(7, 10, 18, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.np-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.np-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+}
+
+.np-icon-btn:active {
+  transform: scale(0.92);
+}
+
+.np-fav-btn.faved {
+  color: #F59E0B;
+}
+
+.np-title {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #FFFFFF;
+}
+
+/* Scrollable Body */
+.np-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Station Cover Card */
+.np-cover-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+  margin-bottom: 12px;
+}
+
+.np-cover-card {
+  width: 195px;
+  height: 195px;
+  max-width: 56vw;
+  max-height: 56vw;
+  border-radius: 24px;
+  background: #FFFFFF;
+  overflow: hidden;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65), 0 0 28px rgba(245, 158, 11, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Station Info */
+.np-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.np-station-name {
+  margin: 0 0 3px 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.3px;
+  line-height: 1.25;
+}
+
+.np-station-location {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #94A3B8;
+  margin-bottom: 8px;
+}
+
+.np-flag {
+  font-size: 14px;
+}
+
+/* Genre Pills */
+.np-genre-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.np-genre-pill {
+  padding: 3px 11px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #CBD5E1;
+}
+
+/* Live Badge */
+.np-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2.5px 10px;
+  border-radius: 9999px;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  color: #EF4444;
+}
+
+.np-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #EF4444;
+  box-shadow: 0 0 8px #EF4444;
+  animation: npDotPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes npDotPulse {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.np-live-text {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+}
+
+/* Waveform Visualizer */
+.np-visualizer {
+  width: 100%;
+  max-width: 300px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  margin: 4px 0 14px;
+}
+
+.np-wave-bar {
+  flex: 1;
+  background: linear-gradient(to top, #B45309, #F59E0B, #FDE68A);
+  border-radius: 9999px;
+  min-height: 4px;
+  height: 8px;
+  transition: height 0.25s ease;
+}
+
+.np-visualizer.playing .np-wave-bar {
+  animation: npWaveBounce 1.1s ease-in-out infinite alternate;
+  animation-delay: var(--bar-delay);
+}
+
+@keyframes npWaveBounce {
+  0% {
+    height: 14%;
+  }
+  50% {
+    height: var(--bar-max-h);
+  }
+  100% {
+    height: 28%;
+  }
+}
+
+/* Playback Controls Row */
+.np-controls-row {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 0 4px;
+}
+
+.np-ctrl-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 48px;
+}
+
+.np-ctrl-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #CBD5E1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.np-ctrl-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+}
+
+.np-ctrl-btn:active {
+  transform: scale(0.92);
+}
+
+.np-ctrl-btn.faved {
+  color: #F59E0B;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.np-ctrl-label {
+  font-size: 11.5px;
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+/* Big Central Play Button */
+.np-play-btn {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #FFB300 0%, #F59E0B 100%);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000000;
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.45), 0 0 16px rgba(245, 158, 11, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.np-play-btn:hover {
+  transform: scale(1.04);
+  box-shadow: 0 10px 28px rgba(245, 158, 11, 0.6);
+}
+
+.np-play-btn:active {
+  transform: scale(0.94);
+}
+
+/* Volume Slider */
+.np-volume-wrap {
+  width: 100%;
+  max-width: 310px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: #94A3B8;
+  padding: 0 2px;
+}
+
+.np-vol-icon {
+  flex-shrink: 0;
+}
+
+.np-slider-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.np-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+
+.np-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  cursor: pointer;
+  border: 2px solid #FFFFFF;
+}
+
+.np-volume-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  cursor: pointer;
+  border: 2px solid #FFFFFF;
+}
+
+/* Stream Information Card */
+.np-info-card {
+  width: 100%;
+  max-width: 330px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  padding: 16px 18px;
+}
+
+.np-info-title {
+  margin: 0 0 12px 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.np-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.np-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.np-info-key {
+  color: #94A3B8;
+  font-weight: 500;
+}
+
+.np-info-val {
+  color: #FFFFFF;
+  font-weight: 600;
+  text-align: right;
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

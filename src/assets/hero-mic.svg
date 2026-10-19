@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Warm amber / orange radial glow behind mic -->
+    <radialGradient id="mic-halo" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#FF9100" stop-opacity="0.85"/>
+      <stop offset="35%" stop-color="#FF6D00" stop-opacity="0.5"/>
+      <stop offset="70%" stop-color="#DD2C00" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Metallic gradients for mic capsule -->
+    <linearGradient id="mic-body-metal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="25%" stop-color="#475569"/>
+      <stop offset="50%" stop-color="#94A3B8"/>
+      <stop offset="75%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+
+    <linearGradient id="mic-gold-trim" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#B45309"/>
+      <stop offset="40%" stop-color="#FCD34D"/>
+      <stop offset="70%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#78350F"/>
+    </linearGradient>
+
+    <linearGradient id="mic-ring-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#CBD5E1"/>
+      <stop offset="50%" stop-color="#64748B"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+
+    <!-- Filter for soft blur on glow -->
+    <filter id="soft-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Amber/Orange Backlight Halo -->
+  <circle cx="100" cy="100" r="90" fill="url(#mic-halo)" filter="url(#soft-glow)"/>
+
+  <!-- Stand Rod -->
+  <rect x="94" y="160" width="12" height="50" rx="3" fill="#1E293B"/>
+  <rect x="97" y="160" width="3" height="50" fill="#94A3B8" opacity="0.6"/>
+
+  <!-- Base mount -->
+  <ellipse cx="100" cy="210" rx="36" ry="12" fill="#0F172A" stroke="#334155" stroke-width="2"/>
+  <ellipse cx="100" cy="208" rx="28" ry="8" fill="#1E293B"/>
+  <ellipse cx="100" cy="207" rx="14" ry="4" fill="#F59E0B" opacity="0.8"/>
+
+  <!-- Swivel Joint Knob -->
+  <circle cx="100" cy="160" r="8" fill="#334155" stroke="#F59E0B" stroke-width="1.5"/>
+  <circle cx="100" cy="160" r="3" fill="#FCD34D"/>
+
+  <!-- Shockmount Outer Ring -->
+  <circle cx="100" cy="98" r="48" fill="none" stroke="url(#mic-ring-metal)" stroke-width="4.5"/>
+  <circle cx="100" cy="98" r="48" fill="none" stroke="#F59E0B" stroke-width="1" opacity="0.4"/>
+
+  <!-- Shockmount Elastic Suspension Bands -->
+  <line x1="66" y1="80" x2="82" y2="92" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+  <line x1="134" y1="80" x2="118" y2="92" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+  <line x1="66" y1="116" x2="82" y2="104" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+  <line x1="134" y1="116" x2="118" y2="104" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Inner Shockmount Collar -->
+  <ellipse cx="100" cy="132" rx="18" ry="6" fill="#1E293B" stroke="#475569" stroke-width="2"/>
+
+  <!-- Microphone Main Capsule -->
+  <!-- Lower Solid Body -->
+  <path d="M82,95 L118,95 L116,134 Q116,138 112,138 L88,138 Q84,138 84,134 Z" fill="url(#mic-body-metal)"/>
+
+  <!-- Gold Ring Separator -->
+  <rect x="81" y="92" width="38" height="4" rx="1.5" fill="url(#mic-gold-trim)"/>
+
+  <!-- Upper Mesh Capsule Dome -->
+  <path d="M82,92 L82,60 Q82,34 100,34 Q118,34 118,60 L118,92 Z" fill="#1E293B" stroke="#475569" stroke-width="1.5"/>
+
+  <!-- Warm internal glow inside the mesh -->
+  <ellipse cx="100" cy="62" rx="12" ry="18" fill="#FF8F00" opacity="0.3" filter="blur(4px)"/>
+
+  <!-- Metallic Mesh Grille Lines -->
+  <g stroke="#94A3B8" stroke-width="0.9" opacity="0.6">
+    <line x1="84" y1="46" x2="116" y2="46"/>
+    <line x1="83" y1="52" x2="117" y2="52"/>
+    <line x1="82" y1="58" x2="118" y2="58"/>
+    <line x1="82" y1="64" x2="118" y2="64"/>
+    <line x1="82" y1="70" x2="118" y2="70"/>
+    <line x1="82" y1="76" x2="118" y2="76"/>
+    <line x1="82" y1="82" x2="118" y2="82"/>
+    <line x1="83" y1="88" x2="117" y2="88"/>
+  </g>
+
+  <!-- Central Vertical Support Rib -->
+  <line x1="100" y1="34" x2="100" y2="92" stroke="#FCD34D" stroke-width="2" opacity="0.9"/>
+  <!-- Specular highlight streak down capsule -->
+  <line x1="93" y1="36" x2="93" y2="91" stroke="#FFFFFF" stroke-width="1.5" opacity="0.45"/>
+  <line x1="93" y1="95" x2="93" y2="135" stroke="#FFFFFF" stroke-width="1.5" opacity="0.4"/>
+</svg>

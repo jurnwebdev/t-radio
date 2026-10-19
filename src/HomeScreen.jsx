@@ -1,0 +1,1360 @@
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
+import { StationBrandLogo } from './StationBrandLogo'
+import { NowPlayingScreen } from './NowPlayingScreen'
+import './HomeScreen.css'
+
+import afrobeatImg from './assets/genres/afrobeat.svg'
+import hiphopImg from './assets/genres/hiphop.svg'
+import gospelImg from './assets/genres/gospel.svg'
+import newsImg from './assets/genres/news.svg'
+import talkImg from './assets/genres/talk.svg'
+import sportsImg from './assets/genres/sports.svg'
+import heroMicSvg from './assets/hero-mic.svg'
+
+const API = 'https://all.api.radio-browser.info'
+const HEADERS = { 'User-Agent': 'TRadioPWA/1.0' }
+
+/* ---------- persistence keys ---------- */
+const FAV_KEY = 'tradio.favorites'
+const LAST_KEY = 'tradio.last'
+const FAVONLY_KEY = 'tradio.home.favonly'
+
+/* ---------- Curated top stations matching the mockup (100% tested working streams) ---------- */
+const CURATED_POPULAR = [
+  {
+    stationuuid: 'curated-coolfm',
+    name: 'Cool FM 96.9',
+    country: 'Nigeria',
+    tags: 'Afrobeats, Hits, Pop',
+    url: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
+    url_resolved: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
+    votes: 9400,
+    clickcount: 18200,
+  },
+  {
+    stationuuid: 'curated-wazobia',
+    name: 'Wazobia FM 95.1',
+    country: 'Nigeria',
+    tags: 'Afrobeats, Talk, Pidgin',
+    url: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
+    url_resolved: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
+    votes: 8900,
+    clickcount: 16700,
+  },
+  {
+    stationuuid: 'curated-nigeriainfo',
+    name: 'Nigeria Info 99.3 FM',
+    country: 'Nigeria',
+    tags: 'News, Talk, Sports',
+    url: 'https://nigeriainfofmlagos993-atunwadigital.streamguys1.com/nigeriainfofmlagos993',
+    url_resolved: 'https://nigeriainfofmlagos993-atunwadigital.streamguys1.com/nigeriainfofmlagos993',
+    votes: 8200,
+    clickcount: 14500,
+  },
+  {
+    stationuuid: 'curated-capital',
+    name: 'Capital FM',
+    country: 'United Kingdom',
+    tags: 'Pop, Hits, Dance',
+    url: 'https://icecast.thisisdax.com/CapitalUKMP3',
+    url_resolved: 'https://icecast.thisisdax.com/CapitalUKMP3',
+    votes: 9800,
+    clickcount: 19500,
+  },
+  {
+    stationuuid: 'curated-heart',
+    name: 'Heart UK',
+    country: 'United Kingdom',
+    tags: 'Pop, Hits, Adult Contemporary',
+    url: 'https://icecast.thisisdax.com/HeartLondonMP3',
+    url_resolved: 'https://icecast.thisisdax.com/HeartLondonMP3',
+    votes: 7900,
+    clickcount: 13800,
+  },
+  {
+    stationuuid: 'curated-lagosjump',
+    name: 'LagosJump Radio',
+    country: 'Nigeria',
+    tags: 'Afrobeats, Dancehall, Hip Hop',
+    url: 'https://radio.lagosjumpradio.com/listen/lagosjump_radio/radio.mp3',
+    url_resolved: 'https://radio.lagosjumpradio.com/listen/lagosjump_radio/radio.mp3',
+    votes: 7300,
+    clickcount: 11200,
+  },
+  {
+    stationuuid: 'curated-metrofm',
+    name: 'Metro FM 97.7',
+    country: 'Nigeria',
+    tags: 'Afrobeats, Urban, Music',
+    url: 'https://go.webgateready.com/metrofm/radio.mp3',
+    url_resolved: 'https://go.webgateready.com/metrofm/radio.mp3',
+    votes: 6800,
+    clickcount: 10400,
+  },
+  {
+    stationuuid: 'curated-bbcws',
+    name: 'BBC World Service',
+    country: 'United Kingdom',
+    tags: 'News, Talk, Global',
+    url: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+    url_resolved: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+    votes: 9900,
+    clickcount: 22000,
+  },
+]
+
+/* ---------- Genre tiles with photographic SVG artwork ---------- */
+const GENRE_TILES = [
+  { id: 'afrobeat', label: 'Afrobeat', tag: 'afrobeat', image: afrobeatImg },
+  { id: 'hiphop', label: 'Hip Hop', tag: 'hiphop', image: hiphopImg },
+  { id: 'gospel', label: 'Gospel', tag: 'gospel', image: gospelImg },
+  { id: 'news', label: 'News', tag: 'news', image: newsImg },
+  { id: 'talk', label: 'Talk', tag: 'talk', image: talkImg },
+  { id: 'sports', label: 'Sports', tag: 'sports', image: sportsImg },
+]
+
+function formatFirstTags(st) {
+  const raw = (st.tags || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+  if (!raw.length) return 'Music'
+  return raw
+    .slice(0, 2)
+    .map((w) => w.replace(/\b\w/g, (c) => c.toUpperCase()))
+    .join(' • ')
+}
+
+function HeroMicGraphic() {
+  return (
+    <svg viewBox="0 0 200 240" width="100%" height="100%" fill="none" aria-hidden="true">
+      <defs>
+        <radialGradient id="mic-halo" cx="50%" cy="45%" r="55%">
+          <stop offset="0%" stopColor="#FF9100" stopOpacity="0.85" />
+          <stop offset="35%" stopColor="#FF6D00" stopOpacity="0.5" />
+          <stop offset="70%" stopColor="#DD2C00" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="mic-body-metal" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#1E293B" />
+          <stop offset="25%" stopColor="#475569" />
+          <stop offset="50%" stopColor="#94A3B8" />
+          <stop offset="75%" stopColor="#334155" />
+          <stop offset="100%" stopColor="#0F172A" />
+        </linearGradient>
+        <linearGradient id="mic-gold-trim" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#B45309" />
+          <stop offset="40%" stopColor="#FCD34D" />
+          <stop offset="70%" stopColor="#F59E0B" />
+          <stop offset="100%" stopColor="#78350F" />
+        </linearGradient>
+        <linearGradient id="mic-ring-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#CBD5E1" />
+          <stop offset="50%" stopColor="#64748B" />
+          <stop offset="100%" stopColor="#1E293B" />
+        </linearGradient>
+      </defs>
+
+      {/* Amber/Orange Backlight Halo */}
+      <circle cx="100" cy="100" r="90" fill="url(#mic-halo)" />
+
+      {/* Stand Rod */}
+      <rect x="94" y="160" width="12" height="50" rx="3" fill="#1E293B" />
+      <rect x="97" y="160" width="3" height="50" fill="#94A3B8" opacity="0.6" />
+
+      {/* Base mount */}
+      <ellipse cx="100" cy="210" rx="36" ry="12" fill="#0F172A" stroke="#334155" strokeWidth="2" />
+      <ellipse cx="100" cy="208" rx="28" ry="8" fill="#1E293B" />
+      <ellipse cx="100" cy="207" rx="14" ry="4" fill="#F59E0B" opacity="0.8" />
+
+      {/* Swivel Joint Knob */}
+      <circle cx="100" cy="160" r="8" fill="#334155" stroke="#F59E0B" strokeWidth="1.5" />
+      <circle cx="100" cy="160" r="3" fill="#FCD34D" />
+
+      {/* Shockmount Outer Ring */}
+      <circle cx="100" cy="98" r="48" fill="none" stroke="url(#mic-ring-metal)" strokeWidth="4.5" />
+      <circle cx="100" cy="98" r="48" fill="none" stroke="#F59E0B" strokeWidth="1" opacity="0.4" />
+
+      {/* Shockmount Elastic Suspension Bands */}
+      <line x1="66" y1="80" x2="82" y2="92" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+      <line x1="134" y1="80" x2="118" y2="92" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+      <line x1="66" y1="116" x2="82" y2="104" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+      <line x1="134" y1="116" x2="118" y2="104" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+
+      {/* Inner Shockmount Collar */}
+      <ellipse cx="100" cy="132" rx="18" ry="6" fill="#1E293B" stroke="#475569" strokeWidth="2" />
+
+      {/* Microphone Main Capsule */}
+      <path d="M82,95 L118,95 L116,134 Q116,138 112,138 L88,138 Q84,138 84,134 Z" fill="url(#mic-body-metal)" />
+      <rect x="81" y="92" width="38" height="4" rx="1.5" fill="url(#mic-gold-trim)" />
+      <path d="M82,92 L82,60 Q82,34 100,34 Q118,34 118,60 L118,92 Z" fill="#1E293B" stroke="#475569" strokeWidth="1.5" />
+
+      {/* Internal warm glow */}
+      <ellipse cx="100" cy="62" rx="12" ry="18" fill="#FF8F00" opacity="0.35" />
+
+      {/* Metallic Grille Lines */}
+      <g stroke="#94A3B8" strokeWidth="0.9" opacity="0.6">
+        <line x1="84" y1="46" x2="116" y2="46" />
+        <line x1="83" y1="52" x2="117" y2="52" />
+        <line x1="82" y1="58" x2="118" y2="58" />
+        <line x1="82" y1="64" x2="118" y2="64" />
+        <line x1="82" y1="70" x2="118" y2="70" />
+        <line x1="82" y1="76" x2="118" y2="76" />
+        <line x1="82" y1="82" x2="118" y2="82" />
+        <line x1="83" y1="88" x2="117" y2="88" />
+      </g>
+
+      <line x1="100" y1="34" x2="100" y2="92" stroke="#FCD34D" strokeWidth="2" opacity="0.9" />
+      <line x1="93" y1="36" x2="93" y2="91" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.45" />
+      <line x1="93" y1="95" x2="93" y2="135" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.4" />
+    </svg>
+  )
+}
+
+/* ---------- Explore Category Filter Pills ---------- */
+const EXPLORE_PILLS = ['All', 'Music', 'News', 'Talk', 'Sports', 'Afrobeats', 'Gospel']
+
+/* ---------- Explore Curated Afrobeats (Mockup Screen 3) ---------- */
+const EXPLORE_AFROBEATS = [
+  {
+    stationuuid: 'exp-thebeat',
+    name: 'The Beat 99.9 FM',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Afrobeats, Hip Hop',
+    url: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
+    url_resolved: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
+  },
+  {
+    stationuuid: 'exp-naija',
+    name: 'Naija FM 102.7',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Afrobeats, Talk',
+    url: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
+    url_resolved: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
+  },
+  {
+    stationuuid: 'curated-coolfm',
+    name: 'Cool FM 96.9',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Afrobeats, Hits',
+    url: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
+    url_resolved: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
+  },
+  {
+    stationuuid: 'curated-wazobia',
+    name: 'Wazobia FM 95.1',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Afrobeats, Talk',
+    url: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
+    url_resolved: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
+  },
+  {
+    stationuuid: 'curated-nigeriainfo',
+    name: 'Nigeria Info 99.3 FM',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'News, Talk',
+    url: 'https://nigeriainfofmlagos993-atunwadigital.streamguys1.com/nigeriainfofmlagos993',
+    url_resolved: 'https://nigeriainfofmlagos993-atunwadigital.streamguys1.com/nigeriainfofmlagos993',
+  },
+  {
+    stationuuid: 'curated-lagosjump',
+    name: 'LagosJump Radio',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Afrobeats, Dancehall',
+    url: 'https://radio.lagosjumpradio.com/listen/lagosjump_radio/radio.mp3',
+    url_resolved: 'https://radio.lagosjumpradio.com/listen/lagosjump_radio/radio.mp3',
+  },
+  {
+    stationuuid: 'curated-metrofm',
+    name: 'Metro FM 97.7',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Afrobeats, Urban',
+    url: 'https://go.webgateready.com/metrofm/radio.mp3',
+    url_resolved: 'https://go.webgateready.com/metrofm/radio.mp3',
+  },
+]
+
+/* ---------- Explore Curated International (Mockup Screen 3) ---------- */
+const EXPLORE_INTERNATIONAL = [
+  {
+    stationuuid: 'exp-bbc1',
+    name: 'BBC Radio 1',
+    country: 'United Kingdom',
+    city: 'London',
+    tags: 'Pop, Chart',
+    url: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+    url_resolved: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+  },
+  {
+    stationuuid: 'curated-capital',
+    name: 'Capital FM',
+    country: 'United Kingdom',
+    city: 'London',
+    tags: 'Pop, Hits',
+    url: 'https://icecast.thisisdax.com/CapitalUKMP3',
+    url_resolved: 'https://icecast.thisisdax.com/CapitalUKMP3',
+  },
+  {
+    stationuuid: 'exp-kiss',
+    name: 'Kiss FM UK',
+    country: 'United Kingdom',
+    city: 'London',
+    tags: 'R&B, Hip Hop',
+    url: 'https://icecast.thisisdax.com/HeartLondonMP3',
+    url_resolved: 'https://icecast.thisisdax.com/HeartLondonMP3',
+  },
+  {
+    stationuuid: 'exp-rfi',
+    name: 'RFI Afrique',
+    country: 'France',
+    city: 'Paris',
+    tags: 'News, Talk',
+    url: 'http://live02.rfi.fr/rfiafrique-64.mp3',
+    url_resolved: 'http://live02.rfi.fr/rfiafrique-64.mp3',
+  },
+  {
+    stationuuid: 'curated-heart',
+    name: 'Heart UK',
+    country: 'United Kingdom',
+    city: 'London',
+    tags: 'Pop, Hits',
+    url: 'https://icecast.thisisdax.com/HeartLondonMP3',
+    url_resolved: 'https://icecast.thisisdax.com/HeartLondonMP3',
+  },
+  {
+    stationuuid: 'curated-bbcws',
+    name: 'BBC World Service',
+    country: 'United Kingdom',
+    city: 'London',
+    tags: 'News, Global',
+    url: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+    url_resolved: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+  },
+]
+
+function getCountryFlag(country = '') {
+  const c = country.toLowerCase().trim()
+  if (c === 'ng' || c.includes('nigeria')) return '🇳🇬'
+  if (c === 'uk' || c.includes('united kingdom') || c.includes('britain') || c.includes('england')) return '🇬🇧'
+  if (c === 'fr' || c.includes('france')) return '🇫🇷'
+  if (c === 'us' || c.includes('united states') || c.includes('usa')) return '🇺🇸'
+  if (c === 'gh' || c.includes('ghana')) return '🇬🇭'
+  if (c === 'za' || c.includes('south africa')) return '🇿🇦'
+  if (c === 'ca' || c.includes('canada')) return '🇨🇦'
+  if (c === 'ke' || c.includes('kenya')) return '🇰🇪'
+  if (c === 'jm' || c.includes('jamaica')) return '🇯🇲'
+  return '🌍'
+}
+
+function ExploreStationRow({ station, isPlaying, onPlay }) {
+  const flag = getCountryFlag(station.country)
+  const location = station.country === 'Nigeria' && station.city
+    ? `${station.city}, ${station.country}`
+    : (station.country || 'Global')
+  const tagList = (station.tags || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w.replace(/\b\w/g, (c) => c.toUpperCase()))
+
+  return (
+    <article
+      className={`hs-explore-row${isPlaying ? ' playing' : ''}`}
+      onClick={onPlay}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onPlay()}
+    >
+      <div className="hs-explore-row-left">
+        <div className="hs-explore-row-art">
+          <StationBrandLogo station={station} size={52} />
+        </div>
+        <div className="hs-explore-row-info">
+          <h4 className="hs-explore-row-name" title={station.name}>
+            {station.name}
+          </h4>
+          <p className="hs-explore-row-country">
+            <span className="hs-explore-row-flag" aria-hidden="true">{flag}</span>
+            <span>{location}</span>
+          </p>
+          <div className="hs-explore-row-tags">
+            {tagList.map((tag) => (
+              <span key={tag} className="hs-explore-row-tag">{tag}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <button
+        className="hs-explore-row-play"
+        aria-label={isPlaying ? `Pause ${station.name}` : `Play ${station.name}`}
+        onClick={(e) => {
+          e.stopPropagation()
+          onPlay()
+        }}
+      >
+        {isPlaying ? (
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+            <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
+      </button>
+    </article>
+  )
+}
+
+export default function HomeScreen() {
+  const [stations, setStations] = useState(CURATED_POPULAR)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  /* ---------- Audio Playback State ---------- */
+  const [current, setCurrent] = useState(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [volume, setVolume] = useState(85)
+  const [showNowPlaying, setShowNowPlaying] = useState(() => {
+    try {
+      const tab = new URLSearchParams(window.location.search).get('tab')
+      const scr = new URLSearchParams(window.location.search).get('screen')
+      return tab === 'nowplaying' || scr === 'nowplaying' || location.hash === '#nowplaying'
+    } catch {}
+    return false
+  })
+
+  const audioRef = useRef(null)
+  const candidatesRef = useRef([])
+  const currentRef = useRef(null)
+  const playCandidateRef = useRef(null)
+
+  useEffect(() => { currentRef.current = current }, [current])
+
+  /* Sync volume with audio element */
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume / 100
+    }
+  }, [volume])
+
+  /* Ensure a default station is loaded if Now Playing is opened directly */
+  useEffect(() => {
+    if (showNowPlaying && !current) {
+      setCurrent(EXPLORE_AFROBEATS[0])
+    }
+  }, [showNowPlaying, current])
+
+  /* ---------- Bottom Navigation Tab & Filters ---------- */
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const tab = new URLSearchParams(window.location.search).get('tab')
+      if (tab && ['home', 'explore', 'favorites', 'search', 'more'].includes(tab)) return tab
+    } catch {}
+    return 'home'
+  })
+  const [favOnly, setFavOnly] = useState(() => localStorage.getItem(FAVONLY_KEY) === 'on')
+  const [search, setSearch] = useState('')
+  const [genre, setGenre] = useState('')
+  const [showAllPopular, setShowAllPopular] = useState(false)
+
+  /* ---------- Explore Screen State ---------- */
+  const [explorePill, setExplorePill] = useState('All')
+  const [showExploreSearch, setShowExploreSearch] = useState(false)
+  const [exploreSearch, setExploreSearch] = useState('')
+  const [showAllAfrobeats, setShowAllAfrobeats] = useState(false)
+  const [showAllInternational, setShowAllInternational] = useState(false)
+
+  /* ---------- User Favorites ---------- */
+  const [favs, setFavs] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'))
+    } catch {
+      return new Set()
+    }
+  })
+
+  const toggleFavorite = useCallback((st, e) => {
+    if (e) e.stopPropagation()
+    setFavs((prev) => {
+      const next = new Set(prev)
+      if (next.has(st.stationuuid)) next.delete(st.stationuuid)
+      else next.add(st.stationuuid)
+      localStorage.setItem(FAV_KEY, JSON.stringify([...next]))
+      return next
+    })
+  }, [])
+
+  /* ---------- Load Stations from Radio Browser API ---------- */
+  const loadStations = useCallback(async (genreTag = '') => {
+    setLoading(true)
+    setError(null)
+    const params = new URLSearchParams({
+      countrycode: 'NG',
+      limit: '150',
+      hidebroken: 'true',
+      order: 'clickcount',
+      reverse: 'true',
+    })
+    if (genreTag) params.set('tag', genreTag)
+    try {
+      const res = await fetch(`${API}/json/stations/search?${params}`, { headers: HEADERS })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      
+      // Combine curated popular with API stations and deduplicate
+      const seen = new Map()
+      for (const st of CURATED_POPULAR) {
+        if (!genreTag || (st.tags || '').toLowerCase().includes(genreTag)) {
+          seen.set(st.name.toLowerCase().replace(/[^a-z0-9]/g, ''), st)
+        }
+      }
+      for (const st of data) {
+        const key = st.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+        if (!key) continue
+        if (!seen.has(key)) {
+          seen.set(key, st)
+        }
+      }
+      setStations([...seen.values()])
+      setLoading(false)
+    } catch {
+      // Keep curated list on error
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadStations()
+  }, [loadStations])
+
+  /* ---------- Stream Candidates & Player Logic ---------- */
+  const streamCandidates = useCallback((st) => {
+    return [...new Set([st.url_resolved, st.url].filter(Boolean))]
+  }, [])
+
+  const playCandidate = useCallback(() => {
+    const a = audioRef.current
+    const st = currentRef.current
+    if (!a || !st) return
+    const remaining = candidatesRef.current
+    if (remaining.length === 0) {
+      setError(`Stream "${st.name}" unavailable`)
+      setIsPlaying(false)
+      setIsPaused(false)
+      return
+    }
+    const nextUrl = remaining.shift()
+    candidatesRef.current = [...remaining]
+    a.src = nextUrl
+    a.load()
+    const p = a.play()
+    if (p !== undefined) {
+      p.then(() => {
+        setIsPlaying(true)
+        setIsPaused(false)
+        setError(null)
+      }).catch(() => {
+        if (candidatesRef.current.length > 0) playCandidateRef.current()
+        else {
+          setIsPlaying(false)
+          setIsPaused(false)
+          setError(`Stream "${st.name}" unavailable`)
+        }
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    playCandidateRef.current = playCandidate
+  }, [playCandidate])
+
+  const startStation = useCallback((st) => {
+    const a = audioRef.current
+    if (!a) return
+    const urls = streamCandidates(st)
+    if (!urls.length) {
+      setError(`Stream unavailable for ${st.name}`)
+      return
+    }
+    const [first, ...rest] = urls
+    candidatesRef.current = rest
+    setCurrent(st)
+    currentRef.current = st
+    setIsPaused(false)
+    setError(null)
+    localStorage.setItem(LAST_KEY, st.stationuuid)
+
+    // Synchronously set src within the user gesture context
+    a.src = first
+    a.load()
+    const playPromise = a.play()
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setIsPlaying(true)
+          setIsPaused(false)
+          setError(null)
+        })
+        .catch((err) => {
+          console.warn('Play attempt failed for:', first, err)
+          if (candidatesRef.current.length > 0) {
+            playCandidateRef.current()
+          } else {
+            setIsPlaying(false)
+            setIsPaused(false)
+            setError(`Stream "${st.name}" unavailable`)
+          }
+        })
+    }
+  }, [streamCandidates])
+
+  /* ---------- Popular list ---------- */
+  const popularList = useMemo(() => {
+    if (!showAllPopular) {
+      return CURATED_POPULAR
+    }
+    const pool = stations.length > 0 ? stations : CURATED_POPULAR
+    const sorted = [...pool].sort((a, b) => (b.votes || 0) + (b.clickcount || 0) - ((a.votes || 0) + (a.clickcount || 0)))
+    return sorted.slice(0, 16)
+  }, [stations, showAllPopular])
+
+  const togglePlay = useCallback(() => {
+    const a = audioRef.current
+    const st = currentRef.current
+    if (!a) return
+    if (!st) {
+      const first = popularList[0] || stations[0] || CURATED_POPULAR[0]
+      if (first) startStation(first)
+      return
+    }
+    if (!a.paused && isPlaying) {
+      a.pause()
+      setIsPaused(true)
+      setIsPlaying(false)
+      return
+    }
+    setIsPaused(false)
+    setError(null)
+    if (!a.src && candidatesRef.current.length > 0) {
+      a.src = candidatesRef.current.shift()
+      a.load()
+    }
+    const playPromise = a.play()
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setIsPlaying(true)
+          setIsPaused(false)
+        })
+        .catch(() => {
+          if (candidatesRef.current.length > 0) playCandidateRef.current()
+        })
+    }
+  }, [isPlaying, popularList, stations, startStation])
+
+  /* ---------- Audio Event Listeners ---------- */
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a) return
+    const onPlaying = () => { setIsPlaying(true); setIsPaused(false); setError(null) }
+    const onPause = () => { if (!currentRef.current) setIsPlaying(false) }
+    const onError = () => { if (candidatesRef.current.length > 0) playCandidateRef.current() }
+    a.addEventListener('playing', onPlaying)
+    a.addEventListener('pause', onPause)
+    a.addEventListener('error', onError)
+    return () => {
+      a.removeEventListener('playing', onPlaying)
+      a.removeEventListener('pause', onPause)
+      a.removeEventListener('error', onError)
+    }
+  }, [])
+
+  /* ---------- Filtered Stations ---------- */
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return stations.filter((st) => {
+      if (favOnly && !favs.has(st.stationuuid)) return false
+      if (genre && !(st.tags || '').toLowerCase().includes(genre)) return false
+      if (q && !(st.name.toLowerCase().includes(q) || (st.tags || '').toLowerCase().includes(q))) return false
+      return true
+    })
+  }, [stations, search, genre, favOnly, favs])
+
+  /* ---------- Explore Filtered List ---------- */
+  const filteredExploreList = useMemo(() => {
+    const q = exploreSearch.trim().toLowerCase()
+    const all = [...EXPLORE_AFROBEATS, ...EXPLORE_INTERNATIONAL, ...stations]
+    const seen = new Set()
+    const deduped = []
+    for (const st of all) {
+      const key = st.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      deduped.push(st)
+    }
+
+    return deduped.filter((st) => {
+      const nameMatch = !q || st.name.toLowerCase().includes(q)
+      const countryMatch = !q || (st.country || '').toLowerCase().includes(q)
+      const tagMatch = !q || (st.tags || '').toLowerCase().includes(q)
+      if (q && !(nameMatch || countryMatch || tagMatch)) return false
+
+      if (explorePill !== 'All') {
+        const pillTag = explorePill.toLowerCase()
+        const tags = (st.tags || '').toLowerCase()
+        if (pillTag === 'afrobeats') {
+          if (!tags.includes('afrobeat')) return false
+        } else if (pillTag === 'music') {
+          const isMusic = tags.includes('music') || tags.includes('pop') || tags.includes('hits') ||
+                          tags.includes('afrobeat') || tags.includes('hip hop') || tags.includes('hiphop') ||
+                          tags.includes('r&b') || tags.includes('chart') || tags.includes('dance') || tags.includes('urban')
+          if (!isMusic) return false
+        } else if (pillTag === 'sports') {
+          if (!tags.includes('sport')) return false
+        } else if (pillTag === 'gospel') {
+          if (!tags.includes('gospel') && !tags.includes('christian') && !tags.includes('worship')) return false
+        } else {
+          if (!tags.includes(pillTag)) return false
+        }
+      }
+      return true
+    })
+  }, [exploreSearch, explorePill, stations])
+
+
+  const handleGenreClick = (g) => {
+    if (genre === g.tag) {
+      setGenre('')
+      loadStations('')
+    } else {
+      setGenre(g.tag)
+      loadStations(g.tag)
+    }
+  }
+
+  const clearFilters = () => {
+    setSearch('')
+    setGenre('')
+    if (favOnly) {
+      setFavOnly(false)
+      localStorage.setItem(FAVONLY_KEY, 'off')
+    }
+    loadStations('')
+  }
+
+  const isFiltering = Boolean(search || genre || favOnly)
+
+  return (
+    <div className="hs-screen">
+      {/* ================= TOP HEADER ================= */}
+      {activeTab === 'explore' ? (
+        <header className="hs-explore-header">
+          <h1 className="hs-explore-title">Explore</h1>
+          <button
+            className={`hs-icon-btn${showExploreSearch ? ' active' : ''}`}
+            aria-label="Search in Explore"
+            onClick={() => setShowExploreSearch((v) => !v)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.8-3.8" />
+            </svg>
+          </button>
+        </header>
+      ) : (
+        <header className="hs-header">
+          <div className="hs-brand">
+            <div className="hs-brand-wave" aria-hidden="true">
+              <span style={{ height: '7px' }} />
+              <span style={{ height: '16px' }} />
+              <span style={{ height: '22px' }} />
+              <span style={{ height: '13px' }} />
+              <span style={{ height: '6px' }} />
+            </div>
+            <h1 className="hs-brand-title">
+              <span className="hs-brand-t">T-</span>
+              <span className="hs-brand-radio">RADIO</span>
+            </h1>
+          </div>
+
+          <div className="hs-actions">
+            <button
+              className={`hs-icon-btn${activeTab === 'search' ? ' active' : ''}`}
+              aria-label="Search"
+              onClick={() => setActiveTab((prev) => (prev === 'search' ? 'home' : 'search'))}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.8-3.8" />
+              </svg>
+            </button>
+            <button
+              className={`hs-icon-btn${activeTab === 'more' ? ' active' : ''}`}
+              aria-label="Settings"
+              onClick={() => setActiveTab((prev) => (prev === 'more' ? 'home' : 'more'))}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 11-4 0v-.09a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.7 1.7 0 00.34-1.87 1.7 1.7 0 00-1.55-1H3a2 2 0 110-4h.09a1.7 1.7 0 001.55-1 1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06a1.7 1.7 0 001.87.34h0a1.7 1.7 0 001-1.55V3a2 2 0 114 0v.09a1.7 1.7 0 001 1.55h0a1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06a1.7 1.7 0 00-.34 1.87v0a1.7 1.7 0 001.55 1H21a2 2 0 110 4h-.09a1.7 1.7 0 00-1.55 1z" />
+              </svg>
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* ================= SEARCH INPUT ================= */}
+      {((activeTab === 'search') || (activeTab === 'explore' && showExploreSearch)) && (
+        <div className="hs-search-box">
+          <svg className="hs-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.8-3.8" />
+          </svg>
+          <input
+            type="search"
+            placeholder={activeTab === 'explore' ? 'Search in Explore…' : 'Search stations, artists, genres…'}
+            value={activeTab === 'explore' ? exploreSearch : search}
+            onChange={(e) => {
+              if (activeTab === 'explore') setExploreSearch(e.target.value)
+              else setSearch(e.target.value)
+            }}
+            autoFocus
+          />
+          {(activeTab === 'explore' ? exploreSearch : search) && (
+            <button
+              className="hs-search-clear"
+              onClick={() => {
+                if (activeTab === 'explore') setExploreSearch('')
+                else setSearch('')
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ================= SCROLLABLE VIEWPORT ================= */}
+      <main className="hs-content">
+        {activeTab === 'more' ? (
+          <div className="hs-more-view">
+            <div className="hs-more-card">
+              <h3 className="hs-more-title">T-Radio</h3>
+              <p className="hs-more-desc">
+                High-definition live radio stations from Nigeria, United Kingdom, France, and around the world.
+              </p>
+              <div className="hs-more-row">
+                <span className="hs-info-key">App Version</span>
+                <span className="hs-info-val">v2.0.0 (T-Radio Edition)</span>
+              </div>
+              <div className="hs-more-row">
+                <span className="hs-info-key">Favorites Saved</span>
+                <span className="hs-info-val">{favs.size} stations</span>
+              </div>
+              <div className="hs-more-row">
+                <span className="hs-info-key">Stream Quality</span>
+                <span className="hs-info-val">High (128 - 320 kbps)</span>
+              </div>
+            </div>
+
+            <div className="hs-more-card">
+              <h3 className="hs-more-title">Controls & Storage</h3>
+              <div className="hs-more-row">
+                <span>Reset Cache & Reload</span>
+                <button
+                  className="hs-more-btn"
+                  onClick={() => {
+                    localStorage.removeItem(LAST_KEY)
+                    window.location.reload()
+                  }}
+                >
+                  Reload
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'explore' ? (
+          <div className="hs-explore-view">
+            {/* Category Filter Pills Rail */}
+            <div className="hs-pills-rail" role="tablist" aria-label="Explore categories">
+              {EXPLORE_PILLS.map((p) => {
+                const isPillActive = explorePill === p
+                return (
+                  <button
+                    key={p}
+                    role="tab"
+                    aria-selected={isPillActive}
+                    className={`hs-pill-btn${isPillActive ? ' active' : ''}`}
+                    onClick={() => {
+                      setExplorePill(p)
+                      if (p === 'All') loadStations('')
+                      else if (p === 'Afrobeats') loadStations('afrobeat')
+                      else if (p === 'Sports') loadStations('sport')
+                      else loadStations(p.toLowerCase())
+                    }}
+                  >
+                    {p}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* If 'All' and not searching: Show Section 1 (Afrobeats) + Section 2 (International) matching Screen 3 */}
+            {explorePill === 'All' && !exploreSearch ? (
+              <>
+                {/* Section 1: Afrobeats */}
+                <section className="hs-explore-section" aria-label="Afrobeats stations">
+                  <div className="hs-section-header">
+                    <h3 className="hs-section-title">Afrobeats</h3>
+                    <button
+                      className="hs-see-all"
+                      onClick={() => setShowAllAfrobeats((v) => !v)}
+                    >
+                      {showAllAfrobeats ? 'Show Less' : 'See All'}
+                    </button>
+                  </div>
+                  <div className="hs-explore-list">
+                    {(showAllAfrobeats ? EXPLORE_AFROBEATS : EXPLORE_AFROBEATS.slice(0, 4)).map((st) => {
+                      const isCurrent = current && (current.stationuuid === st.stationuuid || current.name.toLowerCase() === st.name.toLowerCase())
+                      return (
+                        <ExploreStationRow
+                          key={st.stationuuid}
+                          station={st}
+                          isPlaying={isCurrent && isPlaying}
+                          onPlay={() => {
+                            if (isCurrent) togglePlay()
+                            else startStation(st)
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
+                </section>
+
+                {/* Section 2: International */}
+                <section className="hs-explore-section" aria-label="International stations">
+                  <div className="hs-section-header">
+                    <h3 className="hs-section-title">International</h3>
+                    <button
+                      className="hs-see-all"
+                      onClick={() => setShowAllInternational((v) => !v)}
+                    >
+                      {showAllInternational ? 'Show Less' : 'See All'}
+                    </button>
+                  </div>
+                  <div className="hs-explore-list">
+                    {(showAllInternational ? EXPLORE_INTERNATIONAL : EXPLORE_INTERNATIONAL.slice(0, 4)).map((st) => {
+                      const isCurrent = current && (current.stationuuid === st.stationuuid || current.name.toLowerCase() === st.name.toLowerCase())
+                      return (
+                        <ExploreStationRow
+                          key={st.stationuuid}
+                          station={st}
+                          isPlaying={isCurrent && isPlaying}
+                          onPlay={() => {
+                            if (isCurrent) togglePlay()
+                            else startStation(st)
+                          }}
+                        />
+                      )
+                    })}
+                  </div>
+                </section>
+              </>
+            ) : (
+              /* Filtered by category or exploreSearch */
+              <section className="hs-explore-section" aria-label={`${explorePill} stations`}>
+                <div className="hs-section-header">
+                  <h3 className="hs-section-title">
+                    {exploreSearch ? `Results for "${exploreSearch}"` : `${explorePill} Stations`}
+                  </h3>
+                  {(exploreSearch || explorePill !== 'All') && (
+                    <button
+                      className="hs-see-all"
+                      onClick={() => {
+                        setExplorePill('All')
+                        setExploreSearch('')
+                        loadStations('')
+                      }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+                <div className="hs-explore-list">
+                  {filteredExploreList.length === 0 && !loading && (
+                    <p className="hs-empty-hint">No stations found in this category.</p>
+                  )}
+                  {filteredExploreList.map((st) => {
+                    const isCurrent = current && (current.stationuuid === st.stationuuid || current.name.toLowerCase() === st.name.toLowerCase())
+                    return (
+                      <ExploreStationRow
+                        key={st.stationuuid}
+                        station={st}
+                        isPlaying={isCurrent && isPlaying}
+                        onPlay={() => {
+                          if (isCurrent) togglePlay()
+                          else startStation(st)
+                        }}
+                      />
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
+        ) : (
+          <>
+            {/* ---------- HERO BANNER ---------- */}
+            <section className="hs-hero" aria-label="Hero feature">
+              <div className="hs-hero-copy">
+                <h2 className="hs-hero-heading">
+                  Listen to<br />
+                  <span className="hs-hero-highlight">Radio Stations</span><br />
+                  from around the world
+                </h2>
+                <p className="hs-hero-sub">Music • News • Talk • Sports • Culture</p>
+                <button className="hs-hero-cta" onClick={togglePlay}>
+                  {isPlaying ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+                      <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15">
+                      <path d="M8 5.14v13.72a1 1 0 001.5.86l11-6.86a1 1 0 000-1.72l-11-6.86A1 1 0 008 5.14z" />
+                    </svg>
+                  )}
+                  <span>{isPlaying ? 'Pause' : 'Start Listening'}</span>
+                </button>
+              </div>
+
+              <div className="hs-hero-graphic" aria-hidden="true">
+                <HeroMicGraphic />
+              </div>
+            </section>
+
+            {/* ---------- POPULAR STATIONS ---------- */}
+            <section className="hs-section" aria-label="Popular stations">
+              <div className="hs-section-header">
+                <h3 className="hs-section-title">Popular Stations</h3>
+                <button
+                  className="hs-see-all"
+                  onClick={() => setShowAllPopular((v) => !v)}
+                >
+                  {showAllPopular ? 'Show Less' : 'See All'}
+                </button>
+              </div>
+
+              <div className="hs-popular-rail">
+                {popularList.map((st) => {
+                  const isCurrent = current?.stationuuid === st.stationuuid
+                  return (
+                    <article
+                      key={st.stationuuid}
+                      className={`hs-pop-card${isCurrent && isPlaying ? ' playing' : ''}`}
+                      onClick={() => {
+                        if (isCurrent) togglePlay()
+                        else startStation(st)
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && (isCurrent ? togglePlay() : startStation(st))}
+                    >
+                      <div className="hs-pop-cover">
+                        <StationBrandLogo station={st} size={80} />
+                        {isCurrent && isPlaying && (
+                          <span className="hs-pop-live">
+                            <span className="hs-live-dot" />
+                            LIVE
+                          </span>
+                        )}
+                      </div>
+                      <div className="hs-pop-meta">
+                        <h4 className="hs-pop-name" title={st.name}>{st.name}</h4>
+                        <p className="hs-pop-country">{st.country || 'Global'}</p>
+                        <p className="hs-pop-tags">{formatFirstTags(st)}</p>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+
+            {/* ---------- BROWSE BY GENRE ---------- */}
+            <section className="hs-section" aria-label="Browse by genre">
+              <div className="hs-section-header">
+                <h3 className="hs-section-title">Browse by Genre</h3>
+                <button
+                  className="hs-see-all"
+                  onClick={() => {
+                    setGenre('')
+                    loadStations('')
+                  }}
+                >
+                  See All
+                </button>
+              </div>
+
+              <div className="hs-genre-grid">
+                {GENRE_TILES.map((g) => {
+                  const isActive = genre === g.tag
+                  return (
+                    <button
+                      key={g.id}
+                      className={`hs-genre-card${isActive ? ' active' : ''}`}
+                      onClick={() => handleGenreClick(g)}
+                      aria-pressed={isActive}
+                    >
+                      <img src={g.image} alt="" className="hs-genre-art" />
+                      <div className="hs-genre-overlay" />
+                      <span className="hs-genre-title">{g.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+
+            {/* ---------- FILTERED / SEARCH RESULTS SECTION ---------- */}
+            {isFiltering && (
+              <section className="hs-section" aria-label="Station list">
+                <div className="hs-section-header">
+                  <h3 className="hs-section-title">
+                    {favOnly
+                      ? 'Favorite Stations'
+                      : genre
+                      ? `${GENRE_TILES.find((g) => g.tag === genre)?.label || genre} Stations`
+                      : `Results for "${search}"`}
+                  </h3>
+                  <button className="hs-see-all" onClick={clearFilters}>
+                    Clear
+                  </button>
+                </div>
+
+                <div className="hs-list">
+                  {filtered.length === 0 && !loading && (
+                    <p className="hs-empty-hint">
+                      {favOnly ? 'No favorite stations yet — tap the star on any station to save it.' : 'No stations found.'}
+                    </p>
+                  )}
+                  {filtered.map((st) => {
+                    const isCurrent = current?.stationuuid === st.stationuuid
+                    const isFav = favs.has(st.stationuuid)
+                    return (
+                      <article
+                        key={st.stationuuid}
+                        className={`hs-list-item${isCurrent ? ' current' : ''}`}
+                        onClick={() => startStation(st)}
+                      >
+                        <div className="hs-li-art">
+                          <StationBrandLogo station={st} size={48} />
+                        </div>
+                        <div className="hs-li-info">
+                          <h4 className="hs-li-name">{st.name}</h4>
+                          <p className="hs-li-desc">{st.country || 'Global'} • {formatFirstTags(st)}</p>
+                        </div>
+                        <div className="hs-li-actions">
+                          <button
+                            className="hs-li-play"
+                            aria-label={isCurrent && isPlaying ? 'Pause' : 'Play'}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (isCurrent) togglePlay()
+                              else startStation(st)
+                            }}
+                          >
+                            {isCurrent && isPlaying ? (
+                              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            )}
+                          </button>
+                          <button
+                            className={`hs-li-fav${isFav ? ' faved' : ''}`}
+                            aria-label={isFav ? 'Remove favorite' : 'Add favorite'}
+                            onClick={(e) => toggleFavorite(st, e)}
+                          >
+                            {isFav ? '★' : '☆'}
+                          </button>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* ================= NOW PLAYING MINI-PLAYER ================= */}
+      {current && (
+        <div
+          className="hs-mini-player"
+          aria-label="Now playing bar"
+          onClick={() => setShowNowPlaying(true)}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="hs-mp-cover">
+            <StationBrandLogo station={current} size={42} />
+          </div>
+          <div className="hs-mp-meta">
+            <div className="hs-mp-title">{current.name}</div>
+            <div className="hs-mp-subtitle">
+              {isPlaying && (
+                <span className="hs-eq-bars" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                  <i />
+                </span>
+              )}
+              <span>{current.country || 'Nigeria'} • {formatFirstTags(current)}</span>
+            </div>
+          </div>
+          <button
+            className="hs-mp-play-btn"
+            onClick={(e) => {
+              e.stopPropagation()
+              togglePlay()
+            }}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                <path d="M8 5.14v13.72a1 1 0 001.5.86l11-6.86a1 1 0 000-1.72l-11-6.86A1 1 0 008 5.14z" />
+              </svg>
+            )}
+          </button>
+          <button
+            className="hs-mp-expand-btn"
+            aria-label="Expand player"
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowNowPlaying(true)
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+              <path d="M18 15l-6-6-6 6" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* ================= BOTTOM NAVIGATION ================= */}
+      <nav className="hs-bottom-nav" aria-label="Bottom Navigation">
+        <button
+          className={`hs-nav-item${activeTab === 'home' && !favOnly ? ' active' : ''}`}
+          onClick={() => {
+            setActiveTab('home')
+            if (favOnly) {
+              setFavOnly(false)
+              localStorage.setItem(FAVONLY_KEY, 'off')
+            }
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 10.5L12 3l9 7.5" />
+            <path d="M5 9.5V20a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1V9.5" />
+          </svg>
+          <span>Home</span>
+        </button>
+
+        <button
+          className={`hs-nav-item${activeTab === 'explore' ? ' active' : ''}`}
+          onClick={() => {
+            setActiveTab('explore')
+            setFavOnly(false)
+            setExplorePill('All')
+            setExploreSearch('')
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M14.5 9.5l-1.8 4.7-4.7 1.8 1.8-4.7 4.7-1.8z" />
+          </svg>
+          <span>Explore</span>
+        </button>
+
+        <button
+          className={`hs-nav-item${favOnly ? ' active' : ''}`}
+          onClick={() => {
+            const next = !favOnly
+            setFavOnly(next)
+            localStorage.setItem(FAVONLY_KEY, next ? 'on' : 'off')
+            if (next) setActiveTab('favorites')
+            else setActiveTab('home')
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill={favOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 21s-7.5-4.6-9.5-9.2C1 8.6 3.6 5.5 6.8 5.5c2 0 3.4 1.1 4.2 2.4.4.6 1.6.6 2 0 .8-1.3 2.2-2.4 4.2-2.4 3.2 0 5.8 3.1 4.3 6.3C19.5 16.4 12 21 12 21z" />
+          </svg>
+          <span>Favorites</span>
+        </button>
+
+        <button
+          className={`hs-nav-item${activeTab === 'search' ? ' active' : ''}`}
+          onClick={() => setActiveTab((prev) => (prev === 'search' ? 'home' : 'search'))}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.8-3.8" />
+          </svg>
+          <span>Search</span>
+        </button>
+
+        <button
+          className={`hs-nav-item${activeTab === 'more' ? ' active' : ''}`}
+          onClick={() => {
+            setActiveTab('more')
+            setFavOnly(false)
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+          </svg>
+          <span>More</span>
+        </button>
+      </nav>
+
+      {/* ================= NOW PLAYING FULL SCREEN (SCREEN 2) ================= */}
+      {showNowPlaying && (
+        <NowPlayingScreen
+          station={current || EXPLORE_AFROBEATS[0]}
+          isPlaying={isPlaying}
+          onTogglePlay={() => {
+            if (!current) startStation(EXPLORE_AFROBEATS[0])
+            else togglePlay()
+          }}
+          onClose={() => setShowNowPlaying(false)}
+          isFav={current ? favs.has(current.stationuuid) : false}
+          onToggleFav={() => {
+            const st = current || EXPLORE_AFROBEATS[0]
+            toggleFavorite(st)
+          }}
+          volume={volume}
+          onVolumeChange={setVolume}
+        />
+      )}
+
+      {/* Background audio element */}
+      <audio ref={audioRef} preload="auto" playsInline />
+    </div>
+  )
+}

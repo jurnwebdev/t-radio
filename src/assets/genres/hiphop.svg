@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="hh-glow" cx="50%" cy="25%" r="70%">
+      <stop offset="0%" stop-color="#9C27B0" stop-opacity="0.85"/>
+      <stop offset="40%" stop-color="#4A148C" stop-opacity="0.7"/>
+      <stop offset="85%" stop-color="#120324" stop-opacity="0.95"/>
+    </radialGradient>
+    <linearGradient id="hh-laser1" x1="0%" y1="0%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#E040FB" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#E040FB" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hh-laser2" x1="100%" y1="0%" x2="0%" y2="80%">
+      <stop offset="0%" stop-color="#00E5FF" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#00E5FF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hh-bottom" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="55%" stop-color="#000" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="400" height="240" fill="#0C0217"/>
+  <rect width="400" height="240" fill="url(#hh-glow)"/>
+
+  <!-- Neon laser beams -->
+  <polygon points="120,0 20,240 40,240" fill="url(#hh-laser1)" opacity="0.8"/>
+  <polygon points="280,0 360,240 380,240" fill="url(#hh-laser2)" opacity="0.8"/>
+  <polygon points="200,0 80,240 110,240" fill="url(#hh-laser1)" opacity="0.5"/>
+  <polygon points="200,0 290,240 320,240" fill="url(#hh-laser2)" opacity="0.5"/>
+
+  <!-- Center stage halo -->
+  <circle cx="200" cy="50" r="45" fill="#E040FB" opacity="0.25" filter="blur(15px)"/>
+  <circle cx="200" cy="50" r="15" fill="#FFF" opacity="0.6"/>
+
+  <!-- DJ Deck silhouette in center -->
+  <rect x="160" y="130" width="80" height="25" rx="4" fill="#0A0214"/>
+  <circle cx="180" cy="142" r="8" fill="#17052E" stroke="#E040FB" stroke-width="1.5" opacity="0.8"/>
+  <circle cx="220" cy="142" r="8" fill="#17052E" stroke="#00E5FF" stroke-width="1.5" opacity="0.8"/>
+
+  <!-- Crowd silhouette -->
+  <path d="M0,240 L0,180 Q30,170 60,185 Q75,150 82,130 Q85,128 88,132 Q92,160 110,180 Q130,145 138,122 Q142,120 145,124 Q150,155 168,175 Q185,150 192,135 Q195,133 198,137 Q202,158 215,175 Q230,148 238,125 Q242,123 245,127 Q250,155 270,178 Q290,140 298,118 Q302,116 305,120 Q310,152 330,178 Q355,165 375,182 Q390,175 400,180 L400,240 Z" fill="#07010E"/>
+  
+  <!-- Fingers / hands pointing up -->
+  <path d="M136,135 C132,120 134,105 138,98 C140,96 142,97 142,101 C140,110 139,122 143,135 Z" fill="#05010A"/>
+  <path d="M296,132 C292,118 294,102 298,95 C300,93 302,94 302,98 C300,108 299,120 303,132 Z" fill="#05010A"/>
+
+  <!-- Dark gradient bottom -->
+  <rect width="400" height="240" fill="url(#hh-bottom)"/>
+</svg>
