@@ -538,8 +538,51 @@ a { color: var(--accent); }
 
 .player.paused .eq-canvas { opacity: 0.3; }
 
+/* ---------- mobile ---------- */
+@media (max-width: 700px) {
+  .header { padding: 16px 14px 6px; }
+  .brand h1 { font-size: 1.4rem; }
+  .brand-icon { font-size: 1.5rem; }
+  .tagline { margin: 4px 0 12px; font-size: 0.8rem; }
+
+  .controls { gap: 8px; }
+  #search { min-width: 0; flex: 1 1 100%; }
+  #genre { flex: 1 1 auto; }
+  #fav-toggle, #refresh, #station-toggle { flex: 1 1 auto; padding: 8px 10px; font-size: 0.85rem; }
+  #station-toggle { flex: 1 1 100%; }
+
+  /* Playlist bar: compact chips, items as a single column */
+  .playlist-bar { padding: 10px; }
+  .playlist-head { gap: 6px; }
+  .playlist-head .ghost { padding: 7px 10px; font-size: 0.8rem; }
+  #playlist-select { flex: 1 1 100%; max-width: none; }
+  .autoplay { font-size: 0.8rem; }
+  .playlist-items { grid-template-columns: 1fr; gap: 6px; }
+
+  /* Grid collapse (JS toggles the class on <main>) */
+  .grid {
+    max-width: none;
+    padding: 0 14px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 90px;
+  }
+  .status { padding: 8px 14px; }
+  .stations-collapsed .grid,
+  .stations-collapsed .status { display: none; }
+}
+
+/* ---------- player bar mobile ---------- */
 @media (max-width: 560px) {
-  .player { flex-wrap: wrap; }
+  .player {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+  .now { flex: 1 1 auto; }
   .state { display: none; }
   .live-arcs { display: none; }
+  #volume { width: 80px; flex: 1 1 auto; }
+  #stop { padding: 6px 14px; }
 }

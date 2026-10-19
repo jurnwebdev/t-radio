@@ -927,6 +927,37 @@
     loadStations();
   });
 
+  /* Mobile layout: the station grid is collapsed behind a toggle so the
+     playlist and player own the screen; on wider screens the grid is always
+     visible and the toggle is hidden. */
+  const stationToggle = $("#station-toggle");
+  const mainEl = document.querySelector("main");
+  const mq = matchMedia("(max-width: 700px)");
+
+  function syncStationCollapse() {
+    if (mq.matches) {
+      mainEl.classList.add("stations-collapsed");
+      stationToggle.textContent = "☰ Stations";
+      stationToggle.title = "Show stations";
+      stationToggle.setAttribute("aria-pressed", "false");
+      stationToggle.hidden = false;
+    } else {
+      mainEl.classList.remove("stations-collapsed");
+      stationToggle.hidden = true;
+    }
+  }
+
+  stationToggle.addEventListener("click", () => {
+    const collapsed = mainEl.classList.toggle("stations-collapsed");
+    stationToggle.textContent = collapsed ? "☰ Stations" : "✕ Hide";
+    stationToggle.title = collapsed ? "Show stations" : "Hide stations";
+    stationToggle.setAttribute("aria-pressed", String(!collapsed));
+    if (!collapsed) mainEl.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  mq.addEventListener("change", syncStationCollapse);
+  syncStationCollapse();
+
   initVisuals();
   renderPlaylistUI();
   applyHashShareCode();
