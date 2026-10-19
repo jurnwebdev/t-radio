@@ -353,7 +353,7 @@ function getCountryFlag(country = '') {
   return '🌍'
 }
 
-function ExploreStationRow({ station, isPlaying, onPlay }) {
+function ExploreStationRow({ station, isPlaying, onPlay, isFav, onToggleFav }) {
   const flag = getCountryFlag(station.country)
   const location = station.country === 'Nigeria' && station.city
     ? `${station.city}, ${station.country}`
@@ -393,24 +393,40 @@ function ExploreStationRow({ station, isPlaying, onPlay }) {
         </div>
       </div>
 
-      <button
-        className="hs-explore-row-play"
-        aria-label={isPlaying ? `Pause ${station.name}` : `Play ${station.name}`}
-        onClick={(e) => {
-          e.stopPropagation()
-          onPlay()
-        }}
-      >
-        {isPlaying ? (
-          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-            <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-            <path d="M8 5v14l11-7z" />
-          </svg>
+      <div className="hs-explore-row-actions">
+        {onToggleFav && (
+          <button
+            className={`hs-row-fav-btn${isFav ? ' active' : ''}`}
+            aria-label={isFav ? `Remove ${station.name} from favorites` : `Add ${station.name} to favorites`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleFav(station)
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill={isFav ? '#FF4081' : 'none'} stroke={isFav ? '#FF4081' : 'currentColor'} strokeWidth="2.2" width="18" height="18">
+              <path d="M12 21s-7.5-4.6-9.5-9.2C1 8.6 3.6 5.5 6.8 5.5c2 0 3.4 1.1 4.2 2.4.4.6 1.6.6 2 0 .8-1.3 2.2-2.4 4.2-2.4 3.2 0 5.8 3.1 4.3 6.3C19.5 16.4 12 21 12 21z" />
+            </svg>
+          </button>
         )}
-      </button>
+        <button
+          className="hs-explore-row-play"
+          aria-label={isPlaying ? `Pause ${station.name}` : `Play ${station.name}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onPlay()
+          }}
+        >
+          {isPlaying ? (
+            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+              <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          )}
+        </button>
+      </div>
     </article>
   )
 }
@@ -467,6 +483,16 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('')
   const [genre, setGenre] = useState('')
   const [showAllPopular, setShowAllPopular] = useState(false)
+  const [selectedGenre, setSelectedGenre] = useState(() => {
+    try {
+      const gTag = new URLSearchParams(window.location.search).get('genre')
+      if (gTag) {
+        return GENRE_TILES.find((g) => g.tag === gTag) || null
+      }
+    } catch {}
+    return null
+  })
+  const [genreSearch, setGenreSearch] = useState('')
 
   /* ---------- Explore Screen State ---------- */
   const [explorePill, setExplorePill] = useState('All')
@@ -732,15 +758,67 @@ export default function HomeScreen() {
     })
   }, [exploreSearch, explorePill, stations])
 
+  /* ---------- All Known Stations (Curated + Loaded) ---------- */
+  const allKnownStations = useMemo(() => {
+    const list = [...CURATED_POPULAR, ...EXPLORE_AFROBEATS, ...EXPLORE_INTERNATIONAL, ...stations]
+    const map = new Map()
+    for (const st of list) {
+      if (st && st.stationuuid && !map.has(st.stationuuid)) {
+        map.set(st.stationuuid, st)
+      }
+    }
+    return map
+  }, [stations])
+
+  /* ---------- Favorite Stations List ---------- */
+  const favoriteStations = useMemo(() => {
+    const res = []
+    for (const uuid of favs) {
+      const st = allKnownStations.get(uuid)
+      if (st) res.push(st)
+    }
+    return res
+  }, [favs, allKnownStations])
+
+  /* ---------- Genre Stations Selection (Screen 4) ---------- */
+  const genreStations = useMemo(() => {
+    if (!selectedGenre) return []
+    const tag = selectedGenre.tag.toLowerCase()
+    const q = genreSearch.trim().toLowerCase()
+    const all = [...CURATED_POPULAR, ...EXPLORE_AFROBEATS, ...EXPLORE_INTERNATIONAL, ...stations]
+    const seen = new Set()
+    const deduped = []
+    for (const st of all) {
+      if (!st || !st.name) continue
+      const key = st.name.toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (seen.has(key)) continue
+      seen.add(key)
+      deduped.push(st)
+    }
+
+    return deduped.filter((st) => {
+      const tags = (st.tags || '').toLowerCase()
+      const matchesGenre =
+        tag === 'afrobeat' ? (tags.includes('afrobeat') || tags.includes('afrobeats') || (st.country || '').toLowerCase().includes('nigeria')) :
+        tag === 'hiphop' ? (tags.includes('hip hop') || tags.includes('hiphop') || tags.includes('r&b') || tags.includes('urban')) :
+        tag === 'gospel' ? (tags.includes('gospel') || tags.includes('christian') || tags.includes('worship')) :
+        tag === 'news' ? (tags.includes('news') || tags.includes('talk')) :
+        tag === 'talk' ? (tags.includes('talk') || tags.includes('news')) :
+        tag === 'sports' ? (tags.includes('sport') || tags.includes('sports')) :
+        tags.includes(tag)
+
+      if (!matchesGenre) return false
+      if (q && !(st.name.toLowerCase().includes(q) || (st.country || '').toLowerCase().includes(q) || tags.includes(q))) {
+        return false
+      }
+      return true
+    })
+  }, [selectedGenre, genreSearch, stations])
 
   const handleGenreClick = (g) => {
-    if (genre === g.tag) {
-      setGenre('')
-      loadStations('')
-    } else {
-      setGenre(g.tag)
-      loadStations(g.tag)
-    }
+    setSelectedGenre(g)
+    setGenreSearch('')
+    loadStations(g.tag)
   }
 
   const clearFilters = () => {
@@ -758,7 +836,7 @@ export default function HomeScreen() {
   return (
     <div className="hs-screen">
       {/* ================= TOP HEADER ================= */}
-      {activeTab === 'explore' ? (
+      {selectedGenre ? null : activeTab === 'explore' ? (
         <header className="hs-explore-header">
           <h1 className="hs-explore-title">Explore</h1>
           <button
@@ -771,6 +849,13 @@ export default function HomeScreen() {
               <path d="M20 20l-3.8-3.8" />
             </svg>
           </button>
+        </header>
+      ) : activeTab === 'favorites' ? (
+        <header className="hs-explore-header">
+          <h1 className="hs-explore-title">Favorites</h1>
+          <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 600 }}>
+            {favs.size} saved
+          </span>
         </header>
       ) : (
         <header className="hs-header">
@@ -845,7 +930,109 @@ export default function HomeScreen() {
 
       {/* ================= SCROLLABLE VIEWPORT ================= */}
       <main className="hs-content">
-        {activeTab === 'more' ? (
+        {selectedGenre ? (
+          <div className="hs-genre-view">
+            {/* Dedicated Genre Page (Screen 4) */}
+            <div className="hs-subpage-header">
+              <button
+                className="hs-back-btn"
+                onClick={() => {
+                  setSelectedGenre(null)
+                  setGenreSearch('')
+                  loadStations('')
+                }}
+                aria-label="Back"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+              <h2 className="hs-subpage-title">{selectedGenre.label || selectedGenre.name} Stations</h2>
+              <div style={{ width: '38px' }} />
+            </div>
+
+            <div className="hs-search-box" style={{ margin: '14px 16px' }}>
+              <svg className="hs-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.8-3.8" />
+              </svg>
+              <input
+                type="search"
+                placeholder={`Search ${selectedGenre.label || selectedGenre.name} stations…`}
+                value={genreSearch}
+                onChange={(e) => setGenreSearch(e.target.value)}
+              />
+              {genreSearch && (
+                <button className="hs-search-clear" onClick={() => setGenreSearch('')}>✕</button>
+              )}
+            </div>
+
+            <div className="hs-explore-list" style={{ padding: '0 16px 24px' }}>
+              {genreStations.length === 0 && !loading && (
+                <p className="hs-empty-hint">No stations found for this genre.</p>
+              )}
+              {genreStations.map((st) => {
+                const isCurrent = current && (current.stationuuid === st.stationuuid || current.name.toLowerCase() === st.name.toLowerCase())
+                return (
+                  <ExploreStationRow
+                    key={st.stationuuid}
+                    station={st}
+                    isPlaying={isCurrent && isPlaying}
+                    onPlay={() => {
+                      if (isCurrent) togglePlay()
+                      else startStation(st)
+                    }}
+                    isFav={favs.has(st.stationuuid)}
+                    onToggleFav={toggleFavorite}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        ) : activeTab === 'favorites' ? (
+          <div className="hs-favorites-view">
+            {favoriteStations.length === 0 ? (
+              <div className="hs-empty-state">
+                <div className="hs-empty-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="34" height="34">
+                    <path d="M12 21s-7.5-4.6-9.5-9.2C1 8.6 3.6 5.5 6.8 5.5c2 0 3.4 1.1 4.2 2.4.4.6 1.6.6 2 0 .8-1.3 2.2-2.4 4.2-2.4 3.2 0 5.8 3.1 4.3 6.3C19.5 16.4 12 21 12 21z" />
+                  </svg>
+                </div>
+                <h3 className="hs-empty-title">No Favorites Saved</h3>
+                <p className="hs-empty-desc">
+                  Tap the heart icon on any station or while listening to add your favorite stations here.
+                </p>
+                <button
+                  className="hs-empty-btn"
+                  onClick={() => {
+                    setActiveTab('home')
+                    setSelectedGenre(null)
+                  }}
+                >
+                  Discover Stations
+                </button>
+              </div>
+            ) : (
+              <div className="hs-explore-list">
+                {favoriteStations.map((st) => {
+                  const isCurrent = current && (current.stationuuid === st.stationuuid || current.name.toLowerCase() === st.name.toLowerCase())
+                  return (
+                    <ExploreStationRow
+                      key={st.stationuuid}
+                      station={st}
+                      isPlaying={isCurrent && isPlaying}
+                      onPlay={() => {
+                        if (isCurrent) togglePlay()
+                        else startStation(st)
+                      }}
+                      isFav={favs.has(st.stationuuid)}
+                      onToggleFav={toggleFavorite}
+                    />
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ) : activeTab === 'more' ? (
           <div className="hs-more-view">
             <div className="hs-more-card">
               <h3 className="hs-more-title">T-Radio</h3>
@@ -934,6 +1121,8 @@ export default function HomeScreen() {
                             if (isCurrent) togglePlay()
                             else startStation(st)
                           }}
+                          isFav={favs.has(st.stationuuid)}
+                          onToggleFav={toggleFavorite}
                         />
                       )
                     })}
@@ -963,6 +1152,8 @@ export default function HomeScreen() {
                             if (isCurrent) togglePlay()
                             else startStation(st)
                           }}
+                          isFav={favs.has(st.stationuuid)}
+                          onToggleFav={toggleFavorite}
                         />
                       )
                     })}
@@ -1004,6 +1195,8 @@ export default function HomeScreen() {
                           if (isCurrent) togglePlay()
                           else startStation(st)
                         }}
+                        isFav={favs.has(st.stationuuid)}
+                        onToggleFav={toggleFavorite}
                       />
                     )
                   })}
@@ -1095,8 +1288,9 @@ export default function HomeScreen() {
                 <button
                   className="hs-see-all"
                   onClick={() => {
-                    setGenre('')
-                    loadStations('')
+                    setActiveTab('explore')
+                    setExplorePill('All')
+                    setSelectedGenre(null)
                   }}
                 >
                   See All
@@ -1259,13 +1453,11 @@ export default function HomeScreen() {
       {/* ================= BOTTOM NAVIGATION ================= */}
       <nav className="hs-bottom-nav" aria-label="Bottom Navigation">
         <button
-          className={`hs-nav-item${activeTab === 'home' && !favOnly ? ' active' : ''}`}
+          className={`hs-nav-item${activeTab === 'home' && !selectedGenre ? ' active' : ''}`}
           onClick={() => {
             setActiveTab('home')
-            if (favOnly) {
-              setFavOnly(false)
-              localStorage.setItem(FAVONLY_KEY, 'off')
-            }
+            setSelectedGenre(null)
+            setFavOnly(false)
           }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1279,6 +1471,7 @@ export default function HomeScreen() {
           className={`hs-nav-item${activeTab === 'explore' ? ' active' : ''}`}
           onClick={() => {
             setActiveTab('explore')
+            setSelectedGenre(null)
             setFavOnly(false)
             setExplorePill('All')
             setExploreSearch('')
@@ -1292,16 +1485,14 @@ export default function HomeScreen() {
         </button>
 
         <button
-          className={`hs-nav-item${favOnly ? ' active' : ''}`}
+          className={`hs-nav-item${activeTab === 'favorites' ? ' active' : ''}`}
           onClick={() => {
-            const next = !favOnly
-            setFavOnly(next)
-            localStorage.setItem(FAVONLY_KEY, next ? 'on' : 'off')
-            if (next) setActiveTab('favorites')
-            else setActiveTab('home')
+            setActiveTab('favorites')
+            setSelectedGenre(null)
+            setFavOnly(false)
           }}
         >
-          <svg viewBox="0 0 24 24" fill={favOnly ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" fill={activeTab === 'favorites' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 21s-7.5-4.6-9.5-9.2C1 8.6 3.6 5.5 6.8 5.5c2 0 3.4 1.1 4.2 2.4.4.6 1.6.6 2 0 .8-1.3 2.2-2.4 4.2-2.4 3.2 0 5.8 3.1 4.3 6.3C19.5 16.4 12 21 12 21z" />
           </svg>
           <span>Favorites</span>
@@ -1309,7 +1500,10 @@ export default function HomeScreen() {
 
         <button
           className={`hs-nav-item${activeTab === 'search' ? ' active' : ''}`}
-          onClick={() => setActiveTab((prev) => (prev === 'search' ? 'home' : 'search'))}
+          onClick={() => {
+            setSelectedGenre(null)
+            setActiveTab((prev) => (prev === 'search' ? 'home' : 'search'))
+          }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
             <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.8-3.8" />
@@ -1321,6 +1515,7 @@ export default function HomeScreen() {
           className={`hs-nav-item${activeTab === 'more' ? ' active' : ''}`}
           onClick={() => {
             setActiveTab('more')
+            setSelectedGenre(null)
             setFavOnly(false)
           }}
         >
