@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>T-Radio · Nigerian Online Radio</title>
+  <meta name="description" content="Stream Nigerian radio stations live — a standalone web app powered by the free Radio Browser API." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📻</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <canvas id="bg-waves" aria-hidden="true"></canvas>
+  <header class="header">
+    <div class="brand">
+      <span class="brand-icon" aria-hidden="true">📻</span>
+      <h1>T-Radio</h1>
+      <span class="live-arcs" aria-hidden="true"><i></i><i></i><i></i></span>
+    </div>
+    <p class="tagline">Live Nigerian stations · powered by <a href="https://www.radio-browser.info/" target="_blank" rel="noopener">Radio Browser</a></p>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Search stations…" autocomplete="off" />
+      <select id="genre">
+        <option value="">All genres</option>
+        <option value="afrobeat">Afrobeat</option>
+        <option value="gospel">Gospel</option>
+        <option value="hiphop">Hip-Hop</option>
+        <option value="news">News</option>
+        <option value="highlife">Highlife</option>
+      </select>
+      <button id="fav-toggle" class="ghost" title="Show favorites only" aria-pressed="false">★</button>
+      <button id="refresh" class="ghost" title="Reload station list">↻</button>
+    </div>
+    <section id="playlist-bar" class="playlist-bar" aria-label="Playlist">
+      <div class="playlist-head">
+        <label for="playlist-select" class="playlist-label">Playlist</label>
+        <select id="playlist-select"></select>
+        <button id="playlist-new" class="ghost">+ New</button>
+        <button id="playlist-delete" class="ghost danger">Delete</button>
+        <button id="playlist-export" class="ghost">⇪ Share</button>
+        <button id="playlist-import" class="ghost">⇩ Load code</button>
+        <input id="playlist-import-input" type="text" placeholder="Paste a share code here…" hidden />
+        <label class="autoplay"><input type="checkbox" id="playlist-autoplay" /> Auto-advance</label>
+        <button id="playlist-skip" class="ghost" title="Play next station in playlist">Next ▸</button>
+      </div>
+      <ol id="playlist-items" class="playlist-items"></ol>
+    </section>
+  </header>
+
+  <main>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <section id="grid" class="grid" aria-label="Stations"></section>
+    <template id="card-template">
+      <article class="card">
+        <button class="play" aria-label="Play">
+          <svg class="icon-play" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <svg class="icon-pause" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+          <span class="spinner" aria-hidden="true"></span>
+        </button>
+        <div class="meta">
+          <h2 class="name"></h2>
+          <p class="tags"></p>
+          <p class="signal"></p>
+        </div>
+        <button class="fav" title="Add to favorites" aria-label="Add to favorites">☆</button>
+      </article>
+    </template>
+  </main>
+
+  <footer id="player" class="player" hidden>
+    <div class="now">
+      <canvas id="eq-canvas" class="eq-canvas" width="72" height="26" aria-hidden="true"></canvas>
+      <div class="now-meta">
+        <span class="label">Now playing</span>
+        <strong id="now-name">—</strong>
+      </div>
+    </div>
+    <button id="mute" title="Mute (M)" aria-label="Mute">🔊</button>
+    <input id="volume" type="range" min="0" max="100" value="100" title="Volume" aria-label="Volume" />
+    <button id="sleep" class="ghost" title="Sleep timer: stop after a few minutes">⏰</button>
+    <button id="stop">■ Stop</button>
+    <span id="player-state" class="state"></span>
+  </footer>
+
+  <audio id="audio" preload="none"></audio>
+  <script src="app.js"></script>
+</body>
+</html>
