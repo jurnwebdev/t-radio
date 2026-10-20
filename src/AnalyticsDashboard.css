@@ -1,0 +1,369 @@
+/* =============================================================
+   AnalyticsDashboard.css — owner dashboard styles.
+   Reuses the app's design tokens (--accent, --card, ...) so the
+   dashboard matches both dark and light themes with zero
+   duplication of the palette.
+   ============================================================= */
+
+.dash-screen {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  background: var(--app-bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--screen-shadow);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (max-width: 600px) {
+  .dash-screen {
+    max-width: 100%;
+    box-shadow: none;
+  }
+}
+
+.dash-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ambient-glow);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dash-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Header ---------- */
+.dash-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 10px;
+  background: var(--header-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 20;
+}
+
+.dash-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--hover);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.dash-back:hover { background: var(--hover-strong); color: var(--text) }
+
+.dash-title { flex: 1; min-width: 0 }
+.dash-title h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: var(--heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-title p {
+  margin: 1px 0 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--sub);
+}
+
+/* Live "N listening" pill in the header */
+.dash-live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  background: var(--hover);
+  border: 1px solid var(--border);
+}
+.dash-live-dot i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sub);
+}
+.dash-live-dot.on { color: #4ADE80; border-color: rgba(74, 222, 128, 0.35); background: rgba(74, 222, 128, 0.10) }
+.dash-live-dot.on i { background: #4ADE80; box-shadow: 0 0 8px #4ADE80; animation: dashPulse 1.4s ease-in-out infinite }
+
+@keyframes dashPulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.85) }
+  50% { opacity: 1; transform: scale(1.15) }
+}
+
+/* ---------- Scroll body ---------- */
+.dash-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px 16px 28px;
+  scrollbar-gutter: stable;
+}
+
+/* ---------- Range toggle ---------- */
+.dash-ranges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.dash-range {
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dash-range:hover { background: var(--hover-strong); color: var(--text) }
+.dash-range.active {
+  background: rgb(var(--accent-rgb) / 0.14);
+  border-color: rgb(var(--accent-rgb) / 0.5);
+  color: var(--accent-strong);
+}
+
+/* ---------- KPI grid ---------- */
+.dash-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.dash-kpi {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dash-kpi.wide { grid-column: 1 / -1 }
+.dash-kpi-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--sub);
+}
+.dash-kpi-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--heading);
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+}
+.dash-kpi-value.accent { color: var(--accent-strong) }
+.dash-kpi-foot { font-size: 10px; color: var(--sub); font-weight: 600 }
+.dash-kpi-top {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Cards ---------- */
+.dash-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.dash-card-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dash-live-tag {
+  color: #4ADE80;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+}
+
+.dash-empty {
+  margin: 4px 0 2px;
+  font-size: 12px;
+  color: var(--sub);
+  line-height: 1.5;
+}
+
+/* ---------- Horizontal bars ---------- */
+.dash-bars { display: flex; flex-direction: column; gap: 9px }
+.dash-bar-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 120px 30px;
+  gap: 8px;
+  align-items: center;
+}
+.dash-bar-row.zero .dash-bar-rank { opacity: 0.4 }
+.dash-bar-rank {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--sub);
+  text-align: center;
+}
+.dash-bar-labels { min-width: 0; display: flex; flex-direction: column; gap: 1px }
+.dash-bar-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-bar-sub {
+  font-size: 9.5px;
+  color: var(--sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.dash-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+  transition: width 0.4s ease;
+}
+.dash-bar-fill.live {
+  background: linear-gradient(90deg, #16A34A, #4ADE80);
+}
+.dash-bar-value {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--heading);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Trend chart ---------- */
+.dash-trend { min-width: 0 }
+.dash-trend-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.dash-trend-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--sub);
+}
+.dash-trend-total { color: var(--accent-strong) }
+
+/* ---------- Table ---------- */
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.dash-table thead th {
+  text-align: left;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--sub);
+  padding: 0 6px 7px;
+  border-bottom: 1px solid var(--border);
+}
+.dash-table thead th:not(:first-child) { text-align: right }
+.dash-table tbody td {
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dash-table tbody tr:last-child td { border-bottom: none }
+.dash-table td:not(:first-child) { text-align: right; color: var(--muted) }
+.dash-table-name {
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-table-last { color: var(--sub); font-weight: 600 }
+
+/* ---------- Footnote ---------- */
+.dash-footnote {
+  margin: 2px 2px 0;
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: var(--sub);
+}
+
+/* ---------- Skeleton loading ---------- */
+.dash-skeletons { display: flex; flex-direction: column; gap: 12px }
+.dash-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.dash-kpi-skel,
+.dash-card-skel {
+  border-radius: 14px;
+  background: linear-gradient(100deg, var(--hover) 30%, var(--hover-strong) 50%, var(--hover) 70%);
+  background-size: 200% 100%;
+  animation: dashShimmer 1.4s linear infinite;
+  border: 1px solid var(--border);
+}
+.dash-kpi-skel { height: 74px }
+.dash-card-skel { height: 120px }
+
+@keyframes dashShimmer {
+  from { background-position: 200% 0 }
+  to { background-position: -200% 0 }
+}
+
+/* ---------- 375px compactness ---------- */
+@media (max-width: 400px) {
+  .dash-bar-row { grid-template-columns: 14px minmax(0, 1fr) 96px 26px; gap: 6px }
+  .dash-kpi-value { font-size: 19px }
+  .dash-table-name { max-width: 100px }
+}

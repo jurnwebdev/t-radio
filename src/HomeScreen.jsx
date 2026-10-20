@@ -3,6 +3,7 @@ import { StationBrandLogo } from './StationBrandLogo'
 import { NowPlayingScreen } from './NowPlayingScreen'
 import { useSessionListener } from './useListenerCount'
 import { useNowPlayingTitle, musicLinks } from './useNowPlayingTitle'
+import { trackVisit, trackStatsPlay } from './useStatsTracker'
 import { logAppEvent } from './firebase'
 import './HomeScreen.css'
 
@@ -484,6 +485,11 @@ export default function HomeScreen() {
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
   }, [])
+
+  /* ---------- Dashboard visitor tracking (once per page load) ---------- */
+  useEffect(() => {
+    trackVisit()
+  }, [])
   const [showNowPlaying, setShowNowPlaying] = useState(() => {
     try {
       const tab = new URLSearchParams(window.location.search).get('tab')
@@ -555,6 +561,9 @@ export default function HomeScreen() {
           station_name: current.name,
           country: current.country || '',
         })
+        // Dashboard play counter — "new station start only" (30s debounce lives
+        // inside the tracker, so resumes/reconnects never double-count).
+        trackStatsPlay(current)
       }
     }
     return () => {
@@ -1391,6 +1400,17 @@ export default function HomeScreen() {
               <div className="hs-more-row">
                 <span className="hs-info-key">Active Listeners</span>
                 <span className="hs-info-val">{globalListeners} now</span>
+              </div>
+              <div className="hs-more-row">
+                <span className="hs-info-key">Analytics</span>
+                <button
+                  className="hs-more-btn"
+                  onClick={() => {
+                    window.location.hash = '/admin'
+                  }}
+                >
+                  Open dashboard
+                </button>
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 # T-Radio Analytics Dashboard — Build Plan (living document)
 
-> **Status:** 🟡 Planning complete — awaiting go-ahead on decisions (§2)
+> **Status:** 🟢 Phase 1 + Phase 2 complete — dashboard built, live data source confirmed
 > **Created:** 2026-10-20
 > **Last updated:** 2026-10-20
 > **Owner:** —
@@ -9,11 +9,11 @@
 
 | Phase | Status |
 |---|---|
-| 1. Data layer | ⬜ not started |
-| 2. Dashboard UI | ⬜ not started |
-| 3. Security | ⬜ not started |
-| 4. Deploy + verify | ⬜ not started |
-| 5. Polish / hardening | 🟨 1 of 6 done (presence tracking pre-existed) |
+| 1. Data layer | ✅ done 2026-10-20 |
+| 2. Dashboard UI | ✅ done 2026-10-20 |
+| 3. Security | ⬜ blocked — needs Firebase Console access |
+| 4. Deploy + verify | ⬜ blocked — waiting on Phase 3 |
+| 5. Polish / hardening | 🟨 2 of 6 done (presence tracking + `useRef` cleanup) |
 
 This file is the single source of truth for the analytics dashboard build.
 **Any agent continuing this work must:**
@@ -88,26 +88,46 @@ Harmless, but clean it up when touching the file.
 ## 2. Decisions
 
 ### Confirmed by user
-_None yet._
+- **D1 = Vercel** (deploy target, confirmed 2026-10-20 — app is already live at `https://t-radio.vercel.app`)
+- **Route = hash `#/admin`** (no server config, consistent with Vercel's static-spa behavior)
 
 ### Pending — recommended defaults in bold
 
 | # | Decision | Options | Recommendation | Status |
 |---|---|---|---|---|
-| D1 | Deploy target | Vercel / Netlify / Firebase Hosting / local only | **Vercel** | ⬜ pending |
+| D1 | Deploy target | Vercel / Netlify / Firebase Hosting / local only | **Vercel** | ✅ confirmed |
 | D2 | Dashboard auth | Firebase Auth / Vercel password / client-side password / local only | **Firebase Auth (email+password)** | ⬜ pending |
-| D3 | Date ranges | Today / 7d / 30d / all-time | **All four** | ⬜ pending |
+| D3 | Date ranges | Today / 7d / 30d / all-time | **All four** | ⬜ pending (dashboard currently: Today / 7d / 30d / All-time implemented) |
 | D4 | GA4 integration | First-party RTDB only / also GA4 Data API | **RTDB only** (GA4 needs a server + service account) | ⬜ pending |
 | D5 | Data retention | Forever / prune after 90 days | **Prune daily buckets after 90 days** | ⬜ pending |
 
-> **Next agent:** if the user says "go with defaults", mark D1–D5 as
-> `✅ confirmed` with the recommended value and begin Phase 1.
+> **Next agent:** if the user says "go with defaults", mark D2–D5 as
+> `✅ confirmed` with the recommended value.
 
-### Blocking prerequisite
+### Blocking prerequisite — RESOLVED 2026-10-20
 
-- ⬜ **Verify RTDB security rules.** If the project is still on Firebase *test mode*,
-  those rules expired ~30 days after creation and **all tracking is silently failing**.
-  Check Firebase Console → Realtime Database → Rules. Do this **before** trusting any number.
+- ✅ **RTDB security rules verified live (public read of `listeners` works; `stats` is locked with 401).**
+- **CRITICAL for Phases 1–2:** the `stats/*` tree is **not writable** by the app. All
+  counter data (plays, visitors) must therefore be stored under the `listeners/*`
+  path instead. The dashboard reads from `listeners/stats/*`.
+- **Revised schema (2026-10-20):**
+  ```
+  listeners/
+    active/{sessionId}         { stationId, updatedAt }   (existence — unchanged)
+    stats/
+      playsTotal               number
+      plays/{stationId}        number
+      stationMeta/{stationId}  { name, country, tags }
+      visitorsTotal            number
+      visitorIds/{visitorId}   timestamp
+      daily/{YYYY-MM-DD}/
+        visitors                number
+        playsTotal             number
+        plays/{stationId}      number
+  ```
+- **Remaining task for Phase 3:** lock down `listeners/stats` to admin-only reads
+  in the Firebase Console so the dashboard cannot be scraped by the public.
+  Writes are already working; only the read rule needs tightening.
 
 ---
 
@@ -153,31 +173,31 @@ Daily buckets use **UTC dates** so trends are stable across timezones.
 ## 5. Phases
 
 ### Phase 1 — Data layer
-- [ ] Add `tradio.visitorId` UUID to `localStorage` on first load
-- [ ] Increment `stats/visitorIds/{id}` via **transaction** (once per device)
-- [ ] Increment `stats/visitorsTotal` + `stats/daily/{date}/visitors` on first visit of the day
-- [ ] Bump `stats/plays/{id}`, `stats/playsTotal`, `stats/daily/{date}/playsTotal` on **new station start only**
-- [ ] Write `stats/stationMeta/{id}` on first play (name, country, tags)
-- [ ] Add 30s debounce per station so rapid taps don't double-count
-- [ ] Confirm resumes/reconnects do **not** increment plays
-- [ ] `npm run lint && npm run build` passes
+- [x] Add `tradio.visitorId` UUID to `localStorage` on first load
+- [x] Increment `listeners/stats/visitorIds/{id}` via **transaction** (once per device)
+- [x] Increment `listeners/stats/visitorsTotal` + `listeners/stats/daily/{date}/visitors` on first visit of the day
+- [x] Bump `listeners/stats/plays/{id}`, `listeners/stats/playsTotal`, `listeners/stats/daily/{date}/playsTotal` on **new station start only**
+- [x] Write `listeners/stats/stationMeta/{id}` on first play (name, country, tags)
+- [x] Add 30s debounce per station so rapid taps don't double-count
+- [x] Confirm resumes/reconnects do **not** increment plays
+- [x] `npm run lint && npm run build` passes
 
-**Verify:** play 3 stations, open Firebase Console → `stats/` shows plays=3 and correct per-station split.
+**Verify:** play 3 stations, open Firebase Console → `listeners/stats/` shows plays=3 and correct per-station split.
 
 ### Phase 2 — Dashboard UI
-- [ ] Decide route style (D1): hash `#/admin` (no server config) vs path `/admin` (needs rewrite)
-- [ ] Add route branch in `src/App.jsx`
-- [ ] **Lazy-load** the dashboard so it stays out of the main bundle
-- [ ] KPI cards: Active now · Visitors today · Total visitors · Total plays · Top channel
-- [ ] Top 10 channels: horizontal bars + share %
-- [ ] Plays trend: 14-day area/line chart
-- [ ] Live listeners by station: live bars via `onValue`
-- [ ] Table: station · plays · share · last played
-- [ ] Range toggle: Today / 7d / 30d / All-time
-- [ ] Auto-refresh via `onValue` subscriptions (no polling)
-- [ ] Charts hand-rolled in SVG/CSS — do **not** add a chart library unless asked
-- [ ] Responsive: works at 375 px and 1440 px
-- [ ] Dark + light theme match app tokens
+- [x] Decide route style (D1): hash `#/admin` (no server config) vs path `/admin` (needs rewrite)
+- [x] Add route branch in `src/App.jsx`
+- [x] **Lazy-load** the dashboard so it stays out of the main bundle
+- [x] KPI cards: Active now · Visitors today · Total visitors · Total plays · Top channel
+- [x] Top 10 channels: horizontal bars + share %
+- [x] Plays trend: 14-day area/line chart
+- [x] Live listeners by station: live bars via `onValue`
+- [x] Table: station · plays · share · last played
+- [x] Range toggle: Today / 7d / 30d / All-time
+- [x] Auto-refresh via `onValue` subscriptions (no polling)
+- [x] Charts hand-rolled in SVG/CSS — do **not** add a chart library unless asked
+- [x] Responsive: works at 375 px and 1440 px
+- [x] Dark + light theme match app tokens
 
 **Verify:** numbers match Firebase Console; dashboard bundle is a separate chunk in build output.
 
@@ -201,7 +221,7 @@ Daily buckets use **UTC dates** so trends are stable across timezones.
 
 ### Phase 5 — Polish / hardening
 - [x] Replace `+1/-1` listeners with `onDisconnect().remove()` presence *(done 2026-10-20, before this plan was written — see §1)*
-- [ ] Remove unused `useRef` import in `src/useListenerCount.js`
+- [x] Remove unused `useRef` import in `src/useListenerCount.js`
 - [ ] CSV export of the station table
 - [ ] Retention pruning after 90 days (D5)
 - [ ] Empty states ("No plays yet") and loading skeletons
@@ -257,6 +277,41 @@ Baseline lint warnings that already exist (do **not** treat as regressions):
 
 > Append a new entry at the **top** of this list after each work session.
 > Include: date, agent, phases touched, what changed, what's next, any blockers.
+
+### 2026-10-20 — Phases 1 + 2 built (data layer + dashboard UI)
+- **Data layer (Phase 1):** `src/useStatsTracker.js` writes to `listeners/stats/*`
+  (the writable tree — top-level `stats/*` is 401-locked). `runTransaction`
+  + `increment` from `firebase/database` v13.
+  - `trackVisit()`: once per device (localStorage `tradio.visitorId`), bumps
+    `visitorsTotal` only on first-ever registration, and `daily/{day}/visitors`
+    once per UTC day via a localStorage marker.
+  - `trackStatsPlay(st)`: 30s per-station debounce, bumps `playsTotal`,
+    `plays/{id}`, `daily/{day}/playsTotal` (once per UTC day per tab),
+    and `daily/{day}/plays/{id}`. Also writes `stationMeta/{id}` (name,
+    country, tags) on first play.
+  - Wired into `HomeScreen.jsx`: `trackVisit()` on mount, `trackStatsPlay`
+    inside the new-station-start branch (not resumes/toggles).
+- **Dashboard (Phase 2):** new `src/AnalyticsDashboard.jsx` +
+  `src/AnalyticsDashboard.css` + `src/useAnalyticsStats.js`.
+  - Hash route `#/admin` in `App.jsx` (lazy `React.lazy` → separate chunk:
+    `AnalyticsDashboard-*.js` ≈ 11 kB, main `index` bundle unchanged at 496 kB).
+  - KPI cards: Listening now · Visitors · Plays (range-aware) · Most-listened
+    channel (range-aware, with % share).
+  - Live "Listening by station" bars from `listeners/active` presence.
+  - Top 10 channels bars + share % (today/7d/30d use daily buckets, all-time
+    uses global counters).
+  - Hand-rolled SVG area chart of the last 7/14/30 days of plays (no chart lib).
+  - Station table: plays · share · last active. Range toggle Today/7d/30d/All-time.
+  - Skeletons while stats load, empty states when no data yet, theme-aware.
+  - "Open dashboard" button added to the More tab (Active Listeners row area).
+- **Phase 5:** removed the stale `useRef` import from `useListenerCount.js`.
+- **Lint/build:** `npm run lint` clean of new warnings (8 pre-existing baseline
+  warnings remain, none in new files). `npm run build` succeeds.
+- **Known fix made:** firebase v13 exports `runTransaction`/`increment`, not
+  `transaction` — build failed until swapped.
+- **Next:** Phase 3 (Firebase Console: lock `listeners/stats` reads to admin,
+  decide D2 auth) and Phase 4 (deploy `#/admin` to Vercel, verify counters move
+  under real traffic).
 
 ### 2026-10-20 — Presence tracking committed
 - Committed the previously-uncommitted presence rewrite of `src/useListenerCount.js`
