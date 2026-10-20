@@ -1353,10 +1353,12 @@ export default function HomeScreen() {
   }, [current, channelList])
 
   /* ---------- Share OG card ----------
-   * Update the og:title/desc/image so a shared link previews the
-   * specific station. This has to live after shareUrl: the effect's
-   * dependency array is evaluated during render, so it can only read
-   * values that are already declared. */
+   * Update the og:title/desc/image so a shared link previews the specific
+   * station. The image is the station's artwork when the API has a
+   * favicon, otherwise the T-Radio icon (the same square mark used as the
+   * favicon, so the shared card always looks branded and tidy). This has to
+   * live after shareUrl: the effect's dependency array is evaluated during
+   * render, so it can only read values that are already declared. */
   useEffect(() => {
     const st = current || EXPLORE_AFROBEATS[0]
     if (!st) return
@@ -1364,7 +1366,7 @@ export default function HomeScreen() {
       setShareOgMeta({
         title: `${st.name} · T-Radio`,
         description: `Listen to ${st.name} live — powered by T-Radio`,
-        image: resolveStationArt(st),
+        image: resolveStationArt(st) || '/tradio-icon.webp',
         url: shareUrl,
       })
     } catch { /* best effort */ }
