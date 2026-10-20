@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { StationBrandLogo } from './StationBrandLogo'
 import { NowPlayingScreen } from './NowPlayingScreen'
 import { useSessionListener } from './useListenerCount'
+import { useNowPlayingTitle, musicLinks } from './useNowPlayingTitle'
 import { logAppEvent } from './firebase'
 import './HomeScreen.css'
 
@@ -514,6 +515,34 @@ export default function HomeScreen() {
    * calling them on every play/pause/switch is safe. */
   const { count: globalListeners, trackPlay, trackStop } = useSessionListener()
   const lastTrackedStationRef = useRef(null)
+
+  /* ---------- Live song title (ICY metadata via /api/nowplaying) ---------- */
+  const nowPlaying = useNowPlayingTitle(isPlaying ? current : null)
+  const trackLinks = useMemo(() => musicLinks(nowPlaying ? nowPlaying.track : ''), [nowPlaying])
+
+  /* Mirror the track onto the lock screen / OS media controls (PWA bonus). */
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+    try {
+      if (!current) {
+        navigator.mediaSession.metadata = null
+        return
+      }
+      const subtitle = nowPlaying ? nowPlaying.track : current.name
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: nowPlaying ? nowPlaying.title || nowPlaying.track : current.name,
+        artist: nowPlaying && nowPlaying.artist ? nowPlaying.artist : current.name,
+        album: current.name,
+      })
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+      // Keep the station name visible when there is no song metadata yet.
+      if (!nowPlaying && subtitle) {
+        navigator.mediaSession.metadata.title = current.name
+      }
+    } catch {
+      // Media Session is best-effort only.
+    }
+  }, [current, nowPlaying, isPlaying])
 
   useEffect(() => {
     if (isPlaying && current) {
@@ -1860,6 +1889,8 @@ export default function HomeScreen() {
           isPlaying={isPlaying}
           listeners={globalListeners}
           needsResume={resumeHint && !isPlaying}
+          nowPlaying={nowPlaying}
+          trackLinks={trackLinks}
           onTogglePlay={() => {
             if (!current) startStation(EXPLORE_AFROBEATS[0])
             else togglePlay()

@@ -243,6 +243,77 @@
   letter-spacing: 0.8px;
 }
 
+/* Now Playing song card */
+.np-song-card {
+  width: 100%;
+  max-width: 320px;
+  margin: 14px auto 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--hover);
+  border: 1px solid var(--border-strong);
+  text-align: center;
+}
+
+.np-song-label {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.np-song-title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--heading);
+}
+
+.np-song-artist {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.np-song-links {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.np-song-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid var(--border-strong);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.np-song-link:active {
+  transform: scale(0.96);
+}
+
+.np-song-link-spotify {
+  color: #1DB954;
+  background: rgba(29, 185, 84, 0.1);
+  border-color: rgba(29, 185, 84, 0.35);
+}
+
+.np-song-link-apple {
+  color: #FA2E48;
+  background: rgba(250, 46, 72, 0.1);
+  border-color: rgba(250, 46, 72, 0.35);
+}
+
 /* Live listener count pill */
 .np-listeners {
   display: inline-flex;

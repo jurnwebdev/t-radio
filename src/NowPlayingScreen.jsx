@@ -22,6 +22,8 @@ export function NowPlayingScreen({
   isPlaying,
   listeners = 0,
   needsResume = false,
+  nowPlaying = null,
+  trackLinks = null,
   onTogglePlay,
   onClose,
   isFav,
@@ -166,6 +168,45 @@ export function NowPlayingScreen({
             </span>
           </div>
         </div>
+
+        {/* Now Playing song title (when the station publishes metadata) */}
+        {nowPlaying && (
+          <div className="np-song-card" aria-live="polite">
+            <span className="np-song-label" aria-hidden="true">NOW PLAYING</span>
+            <div className="np-song-title">{nowPlaying.title}</div>
+            {nowPlaying.artist && (
+              <div className="np-song-artist">{nowPlaying.artist}</div>
+            )}
+            {trackLinks && (
+              <div className="np-song-links">
+                <a
+                  className="np-song-link np-song-link-spotify"
+                  href={trackLinks.spotify}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label={`Open ${nowPlaying.track} on Spotify`}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                    <path d="M12 0a12 12 0 100 24 12 12 0 000-24zm5.51 17.44a.75.75 0 01-1.03.25c-2.82-1.72-6.37-2.11-10.56-1.16a.75.75 0 11-.33-1.46c4.59-1.05 8.52-.6 11.67 1.34.35.22.46.68.25 1.03zm1.47-3.27a.94.94 0 01-1.29.31c-3.23-1.98-8.15-2.56-11.97-1.4a.94.94 0 11-.55-1.8c4.37-1.32 9.79-.68 13.5 1.6.44.28.59.85.31 1.29zm.13-3.4C15.28 8.46 8.94 8.25 5.33 9.35a1.12 1.12 0 11-.65-2.15c4.16-1.26 11.08-1.02 15.44 1.56a1.12 1.12 0 01-1.01 1.97z"/>
+                  </svg>
+                  Spotify
+                </a>
+                <a
+                  className="np-song-link np-song-link-apple"
+                  href={trackLinks.apple}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label={`Open ${nowPlaying.track} on Apple Music`}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+                    <path d="M16.66 12.71c-.02-2.44 1.99-3.6 2.08-3.66-1.13-1.66-2.9-1.88-3.52-1.91-1.5-.15-2.93.88-3.69.88-.76 0-1.94-.86-3.18-.84-1.64.02-3.15.95-3.99 2.42-1.7 2.95-.43 7.32 1.22 9.72.81 1.17 1.78 2.49 3.04 2.44 1.22-.05 1.68-.79 3.15-.79s1.89.79 3.18.77c1.31-.02 2.14-1.19 2.94-2.36.93-1.36 1.31-2.67 1.33-2.74-.03-.01-2.55-.98-2.56-3.9zM14.36 5.05c.67-.81 1.12-1.94 1-3.05-.96.04-2.13.64-2.82 1.45-.62.72-1.17 1.87-1.02 2.97 1.07.08 2.17-.55 2.84-1.37z"/>
+                  </svg>
+                  Apple Music
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Dynamic Waveform Visualizer */}
         <div className={`np-visualizer${isPlaying ? ' playing' : ''}`} aria-hidden="true">
