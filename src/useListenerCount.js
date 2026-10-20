@@ -1,15 +1,21 @@
-import { useEffect, useRef, useCallback } from 'react'
-import { ref, onValue, increment, update } from 'firebase/database'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { ref, onValue, increment, set } from 'firebase/database'
 import { db, firebaseReady } from './firebase'
 
 function bumpCounter(path, delta) {
-  if (!firebaseReady || !db) return
+  if (!firebaseReady || !db) {
+    console.log(`[T-Radio] skip bump ${path} ${delta} — firebase not ready`)
+    return
+  }
   try {
-    // In Firebase v13, increment() returns a server-value marker
-    // (like {'.sv':{increment:1}}). The actual write goes through update().
-    update(ref(db, path), increment(delta)).catch(() => {})
-  } catch {
-    // never let tracking break the app
+    // increment() returns a server-value marker (like {'.sv':{increment:1}}).
+    // It must be written as a VALUE via set(), not passed as the whole
+    // values argument to update() (that makes '.sv' an invalid path key).
+    set(ref(db, path), increment(delta))
+      .then(() => console.log(`[T-Radio] ✓ ${path} ${delta > 0 ? '+' : ''}${delta}`))
+      .catch((err) => console.error(`[T-Radio] ✗ write failed ${path} ${delta}:`, err))
+  } catch (err) {
+    console.error('[T-Radio] bumpCounter threw:', err)
   }
 }
 
@@ -54,7 +60,7 @@ function stationPath(stationId) {
  * the total exactly once, and each station exactly once.
  */
 export function useSessionListener() {
-  const stateRef = useRef({ count: 0 })
+  const [count, setCount] = useState(0)
 
   // Subscribe to the live app-wide total
   useEffect(() => {
@@ -63,12 +69,11 @@ export function useSessionListener() {
     let unsub = () => {}
     const totalRef = ref(db, totalPath())
     unsub = onValue(totalRef, (snap) => {
-      const count = snap.val() ?? 0
-      stateRef.current.count = count
-      // Update any element with [data-listener-count] in the DOM
-      document.querySelectorAll('[data-listener-count]').forEach((el) => {
-        el.textContent = String(count)
-      })
+      const next = snap.val() ?? 0
+      console.log(`[T-Radio] RTDB connected — total listeners: ${next}`)
+      setCount(next)
+    }, (err) => {
+      console.error('[T-Radio] RTDB subscribe failed:', err)
     })
 
     // On unmount, roll back every station this tab had active
@@ -125,9 +130,7 @@ export function useSessionListener() {
   }, [])
 
   return {
-    get count() {
-      return stateRef.current.count
-    },
+    count,
     trackPlay,
     trackStop,
   }

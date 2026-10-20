@@ -1,6 +1,110 @@
 :root {
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color-scheme: dark;
+
+  /* ---------- Dark theme: lighter blue accent ---------- */
+  --accent: #6AA8FF;
+  --accent-rgb: 106 168 255;
+  --accent-strong: #A9CBFF;
+  --accent-deep: #3D7BFF;
+  --accent-glow: rgb(var(--accent-rgb) / 0.45);
+  --accent-contrast: #06101F; /* text/icons placed on the accent fill */
+
+  /* Surfaces */
+  --app-bg: #06090F;
+  --surface: #0E1624;
+  --surface-2: #141F32;
+  --surface-glass: rgba(14, 22, 34, 0.92);
+  --card: #10192A;
+
+  /* Lines & interaction */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --hover: rgba(255, 255, 255, 0.05);
+  --hover-strong: rgba(255, 255, 255, 0.12);
+
+  /* Text */
+  --text: #F8FAFC;
+  --heading: #FFFFFF;
+  --muted: #8E9CAE;
+  --sub: #5F6E82;
+
+  /* Chrome */
+  --header-bg: rgba(6, 9, 15, 0.92);
+  --nav-bg: rgba(7, 11, 18, 0.96);
+  --toast-bg: rgba(17, 24, 39, 0.95);
+  --scrim: rgba(7, 10, 18, 0.88);
+
+  /* Hero / ambiance */
+  --hero-bg:
+    radial-gradient(circle at 84% 45%, rgb(106 168 255 / 0.30), transparent 60%),
+    linear-gradient(135deg, #131C2D 0%, #0C121E 60%, #15111B 100%);
+  --ambient-glow:
+    radial-gradient(550px 320px at 90% -5%, rgb(106 168 255 / 0.14), transparent 65%),
+    radial-gradient(450px 380px at -10% 45%, rgb(106 168 255 / 0.06), transparent 65%);
+
+  /* Now Playing backdrop */
+  --np-glow: radial-gradient(circle at 50% 12%, rgb(106 168 255 / 0.14) 0%, rgba(6, 9, 15, 1) 60%);
+
+  /* Slider track + radar */
+  --slider-track: rgba(255, 255, 255, 0.12);
+  --radar-rgb: 255 255 255;
+
+  --screen-shadow: 0 0 80px rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* ---------- Light theme: true royal blue ---------- */
+  --accent: #2952CC;
+  --accent-rgb: 41 82 204;
+  --accent-strong: #5B8CFF;
+  --accent-deep: #16307A;
+  --accent-glow: rgb(var(--accent-rgb) / 0.30);
+  --accent-contrast: #FFFFFF;
+
+  /* Surfaces */
+  --app-bg: #F2F5FA;
+  --surface: #FFFFFF;
+  --surface-2: #E9EFF8;
+  --surface-glass: rgba(255, 255, 255, 0.92);
+  --card: #FFFFFF;
+
+  /* Lines & interaction */
+  --border: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --hover: rgba(15, 23, 42, 0.05);
+  --hover-strong: rgba(15, 23, 42, 0.10);
+
+  /* Text */
+  --text: #0B1220;
+  --heading: #0B1220;
+  --muted: #5B6478;
+  --sub: #7A8296;
+
+  /* Chrome */
+  --header-bg: rgba(242, 245, 250, 0.92);
+  --nav-bg: rgba(242, 245, 250, 0.96);
+  --toast-bg: rgba(255, 255, 255, 0.98);
+  --scrim: rgba(242, 245, 250, 0.90);
+
+  /* Hero / ambiance */
+  --hero-bg:
+    radial-gradient(circle at 84% 45%, rgb(41 82 204 / 0.16), transparent 60%),
+    linear-gradient(135deg, #FFFFFF 0%, #EAF0FB 60%, #F4F1FF 100%);
+  --ambient-glow:
+    radial-gradient(550px 320px at 90% -5%, rgb(41 82 204 / 0.10), transparent 65%),
+    radial-gradient(450px 380px at -10% 45%, rgb(41 82 204 / 0.05), transparent 65%);
+
+  /* Now Playing backdrop */
+  --np-glow: radial-gradient(circle at 50% 12%, rgb(41 82 204 / 0.10) 0%, rgba(242, 245, 250, 1) 60%);
+
+  /* Slider track + radar */
+  --slider-track: rgba(15, 23, 42, 0.12);
+  --radar-rgb: 41 82 204;
+
+  --screen-shadow: 0 10px 40px rgba(15, 23, 42, 0.12);
 }
 
 * {
@@ -16,12 +120,12 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden; /* Lock window so bottom navigation never hides on visit */
-  background: #06090F;
+  background: var(--app-bg);
 }
 
 body {
   font-family: var(--font-family);
-  color: #FFFFFF;
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -37,10 +141,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--muted);
 }

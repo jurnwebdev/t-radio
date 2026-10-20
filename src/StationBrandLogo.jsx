@@ -29,7 +29,7 @@ export function FallbackStationLogo({ name = 'Radio', size = 56 }) {
         style={{
           fontSize: size * 0.36,
           fontWeight: 800,
-          color: '#FFC107',
+          color: '#7FB3FF',
           letterSpacing: '-0.5px',
           textShadow: '0 2px 6px rgba(0,0,0,0.5)',
         }}
@@ -44,10 +44,10 @@ export function FallbackStationLogo({ name = 'Radio', size = 56 }) {
           marginTop: '4px',
         }}
       >
-        <span style={{ width: '3px', height: '8px', background: '#FFC107', borderRadius: '1px', opacity: 0.6 }} />
-        <span style={{ width: '3px', height: '14px', background: '#FFC107', borderRadius: '1px' }} />
-        <span style={{ width: '3px', height: '10px', background: '#FFC107', borderRadius: '1px', opacity: 0.8 }} />
-        <span style={{ width: '3px', height: '5px', background: '#FFC107', borderRadius: '1px', opacity: 0.5 }} />
+        <span style={{ width: '3px', height: '8px', background: '#7FB3FF', borderRadius: '1px', opacity: 0.6 }} />
+        <span style={{ width: '3px', height: '14px', background: '#7FB3FF', borderRadius: '1px' }} />
+        <span style={{ width: '3px', height: '10px', background: '#7FB3FF', borderRadius: '1px', opacity: 0.8 }} />
+        <span style={{ width: '3px', height: '5px', background: '#7FB3FF', borderRadius: '1px', opacity: 0.5 }} />
       </div>
     </div>
   )

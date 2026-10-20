@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { StationBrandLogo } from './StationBrandLogo'
-import { useStationListener } from './useListenerCount'
+import { RadarSweep } from './components/RadarSweep'
 import './NowPlayingScreen.css'
 
 export function getCountryFlag(country = '') {
@@ -20,12 +20,17 @@ export function getCountryFlag(country = '') {
 export function NowPlayingScreen({
   station,
   isPlaying,
+  listeners = 0,
+  needsResume = false,
   onTogglePlay,
   onClose,
   isFav,
   onToggleFav,
   volume = 80,
   onVolumeChange,
+  onPrevChannel,
+  onNextChannel,
+  isLoading = false,
 }) {
   const [toastMessage, setToastMessage] = useState('')
 
@@ -34,9 +39,6 @@ export function NowPlayingScreen({
     const timer = setTimeout(() => setToastMessage(''), 2200)
     return () => clearTimeout(timer)
   }, [toastMessage])
-
-  // Live "X listening now" count for this station (read-only subscription)
-  useStationListener(station ? station.stationuuid : null)
 
   if (!station) return null
 
@@ -90,6 +92,13 @@ export function NowPlayingScreen({
         </div>
       )}
 
+      {/* Loading overlay (radar sweep) while navigating channels */}
+      {isLoading && (
+        <div className="np-loading-overlay">
+          <RadarSweep label="Tuning station…" />
+        </div>
+      )}
+
       {/* Top Navigation Bar */}
       <header className="np-header">
         <button
@@ -112,7 +121,7 @@ export function NowPlayingScreen({
           title={isFav ? 'Favorited' : 'Add to favorites'}
         >
           {isFav ? (
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="#F59E0B" stroke="#F59E0B" strokeWidth="1.5">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="currentColor" strokeWidth="1.5">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
           ) : (
@@ -152,7 +161,7 @@ export function NowPlayingScreen({
             <span className="np-live-dot" />
             <span className="np-live-text">LIVE</span>
             <span className="np-listeners" aria-live="polite">
-              <span data-station-listener-count={station.stationuuid}>0</span>
+              <span>{listeners}</span>
               <span className="np-listeners-label">listening now</span>
             </span>
           </div>
@@ -172,6 +181,12 @@ export function NowPlayingScreen({
           ))}
         </div>
 
+        {needsResume && !isPlaying && (
+          <p className="np-resume-note" role="status">
+            Tap play to resume the live stream
+          </p>
+        )}
+
         {/* Playback Controls Row: Like | Big Play/Pause | Share */}
         <div className="np-controls-row">
           <div className="np-ctrl-group">
@@ -181,7 +196,7 @@ export function NowPlayingScreen({
               aria-label={isFav ? 'Liked' : 'Like'}
             >
               {isFav ? (
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="#F59E0B" stroke="#F59E0B" strokeWidth="1.5">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="currentColor" strokeWidth="1.5">
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
               ) : (
@@ -243,7 +258,7 @@ export function NowPlayingScreen({
               className="np-volume-slider"
               aria-label="Volume"
               style={{
-                background: `linear-gradient(to right, #F59E0B 0%, #F59E0B ${volume}%, rgba(255, 255, 255, 0.12) ${volume}%, rgba(255, 255, 255, 0.12) 100%)`,
+                background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${volume}%, var(--slider-track) ${volume}%, var(--slider-track) 100%)`,
               }}
             />
           </div>
@@ -280,6 +295,32 @@ export function NowPlayingScreen({
             </div>
           </div>
         </section>
+
+        {/* Channel Navigation: Prev / Next (footer) */}
+        <div className="np-channel-nav np-channel-nav-footer">
+          <button
+            className="np-nav-btn np-nav-prev"
+            onClick={() => onPrevChannel && onPrevChannel()}
+            disabled={!onPrevChannel || isLoading}
+            aria-label="Previous channel"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span className="np-nav-label">Prev</span>
+          </button>
+          <button
+            className="np-nav-btn np-nav-next"
+            onClick={() => onNextChannel && onNextChannel()}
+            disabled={!onNextChannel || isLoading}
+            aria-label="Next channel"
+          >
+            <span className="np-nav-label">Next</span>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   )

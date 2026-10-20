@@ -37,11 +37,18 @@ if (!firebaseReady) {
 let app = null;
 let analytics = null;
 if (firebaseReady) {
-  app = initializeApp(firebaseConfig);
   try {
-    analytics = getAnalytics(app);
-  } catch {
-    analytics = null; // analytics unavailable in this environment
+    app = initializeApp(firebaseConfig);
+    console.log('[T-Radio] Firebase initialised ✓  projectId:', firebaseConfig.projectId);
+    try {
+      analytics = getAnalytics(app);
+      console.log('[T-Radio] GA4 analytics ready ✓');
+    } catch {
+      analytics = null;
+      console.log('[T-Radio] GA4 analytics not available in this environment');
+    }
+  } catch (err) {
+    console.error('[T-Radio] Firebase init failed:', err);
   }
 }
 export { app, analytics, firebaseReady };

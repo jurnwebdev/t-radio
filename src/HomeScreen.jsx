@@ -19,7 +19,29 @@ const HEADERS = { 'User-Agent': 'TRadioPWA/1.0' }
 /* ---------- persistence keys ---------- */
 const FAV_KEY = 'tradio.favorites'
 const LAST_KEY = 'tradio.last'
+const LAST_STATION_KEY = 'tradio.last.station'
 const FAVONLY_KEY = 'tradio.home.favonly'
+const THEME_KEY = 'tradio.theme'
+
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY)
+    if (saved === 'dark' || saved === 'light') return saved
+  } catch {}
+  return 'dark'
+}
+
+/* Restore the full last-played station so it can render before the API loads */
+function loadSavedStation() {
+  try {
+    const raw = localStorage.getItem(LAST_STATION_KEY)
+    if (raw) {
+      const st = JSON.parse(raw)
+      if (st && st.stationuuid) return st
+    }
+  } catch {}
+  return null
+}
 
 /* ---------- Curated top stations matching the mockup (100% tested working streams) ---------- */
 const CURATED_POPULAR = [
@@ -132,9 +154,9 @@ function HeroMicGraphic() {
     <svg viewBox="0 0 200 240" width="100%" height="100%" fill="none" aria-hidden="true">
       <defs>
         <radialGradient id="mic-halo" cx="50%" cy="45%" r="55%">
-          <stop offset="0%" stopColor="#FF9100" stopOpacity="0.85" />
-          <stop offset="35%" stopColor="#FF6D00" stopOpacity="0.5" />
-          <stop offset="70%" stopColor="#DD2C00" stopOpacity="0.2" />
+          <stop offset="0%" stopColor="#5B9BFF" stopOpacity="0.85" />
+          <stop offset="35%" stopColor="#3D7BFF" stopOpacity="0.5" />
+          <stop offset="70%" stopColor="#1E40AF" stopOpacity="0.2" />
           <stop offset="100%" stopColor="#000" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="mic-body-metal" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -145,10 +167,10 @@ function HeroMicGraphic() {
           <stop offset="100%" stopColor="#0F172A" />
         </linearGradient>
         <linearGradient id="mic-gold-trim" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#B45309" />
-          <stop offset="40%" stopColor="#FCD34D" />
-          <stop offset="70%" stopColor="#F59E0B" />
-          <stop offset="100%" stopColor="#78350F" />
+          <stop offset="0%" stopColor="#1E40AF" />
+          <stop offset="40%" stopColor="#A9CBFF" />
+          <stop offset="70%" stopColor="#5B9BFF" />
+          <stop offset="100%" stopColor="#0B2A6B" />
         </linearGradient>
         <linearGradient id="mic-ring-metal" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#CBD5E1" />
@@ -167,21 +189,21 @@ function HeroMicGraphic() {
       {/* Base mount */}
       <ellipse cx="100" cy="210" rx="36" ry="12" fill="#0F172A" stroke="#334155" strokeWidth="2" />
       <ellipse cx="100" cy="208" rx="28" ry="8" fill="#1E293B" />
-      <ellipse cx="100" cy="207" rx="14" ry="4" fill="#F59E0B" opacity="0.8" />
+      <ellipse cx="100" cy="207" rx="14" ry="4" fill="#5B9BFF" opacity="0.8" />
 
       {/* Swivel Joint Knob */}
-      <circle cx="100" cy="160" r="8" fill="#334155" stroke="#F59E0B" strokeWidth="1.5" />
-      <circle cx="100" cy="160" r="3" fill="#FCD34D" />
+      <circle cx="100" cy="160" r="8" fill="#334155" stroke="#5B9BFF" strokeWidth="1.5" />
+      <circle cx="100" cy="160" r="3" fill="#A9CBFF" />
 
       {/* Shockmount Outer Ring */}
       <circle cx="100" cy="98" r="48" fill="none" stroke="url(#mic-ring-metal)" strokeWidth="4.5" />
-      <circle cx="100" cy="98" r="48" fill="none" stroke="#F59E0B" strokeWidth="1" opacity="0.4" />
+      <circle cx="100" cy="98" r="48" fill="none" stroke="#5B9BFF" strokeWidth="1" opacity="0.4" />
 
       {/* Shockmount Elastic Suspension Bands */}
-      <line x1="66" y1="80" x2="82" y2="92" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
-      <line x1="134" y1="80" x2="118" y2="92" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
-      <line x1="66" y1="116" x2="82" y2="104" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
-      <line x1="134" y1="116" x2="118" y2="104" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+      <line x1="66" y1="80" x2="82" y2="92" stroke="#5B9BFF" strokeWidth="2" strokeLinecap="round" />
+      <line x1="134" y1="80" x2="118" y2="92" stroke="#5B9BFF" strokeWidth="2" strokeLinecap="round" />
+      <line x1="66" y1="116" x2="82" y2="104" stroke="#5B9BFF" strokeWidth="2" strokeLinecap="round" />
+      <line x1="134" y1="116" x2="118" y2="104" stroke="#5B9BFF" strokeWidth="2" strokeLinecap="round" />
 
       {/* Inner Shockmount Collar */}
       <ellipse cx="100" cy="132" rx="18" ry="6" fill="#1E293B" stroke="#475569" strokeWidth="2" />
@@ -192,7 +214,7 @@ function HeroMicGraphic() {
       <path d="M82,92 L82,60 Q82,34 100,34 Q118,34 118,60 L118,92 Z" fill="#1E293B" stroke="#475569" strokeWidth="1.5" />
 
       {/* Internal warm glow */}
-      <ellipse cx="100" cy="62" rx="12" ry="18" fill="#FF8F00" opacity="0.35" />
+      <ellipse cx="100" cy="62" rx="12" ry="18" fill="#5B9BFF" opacity="0.35" />
 
       {/* Metallic Grille Lines */}
       <g stroke="#94A3B8" strokeWidth="0.9" opacity="0.6">
@@ -206,7 +228,7 @@ function HeroMicGraphic() {
         <line x1="83" y1="88" x2="117" y2="88" />
       </g>
 
-      <line x1="100" y1="34" x2="100" y2="92" stroke="#FCD34D" strokeWidth="2" opacity="0.9" />
+      <line x1="100" y1="34" x2="100" y2="92" stroke="#A9CBFF" strokeWidth="2" opacity="0.9" />
       <line x1="93" y1="36" x2="93" y2="91" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.45" />
       <line x1="93" y1="95" x2="93" y2="135" stroke="#FFFFFF" strokeWidth="1.5" opacity="0.4" />
     </svg>
@@ -439,10 +461,28 @@ export default function HomeScreen() {
   const [error, setError] = useState(null)
 
   /* ---------- Audio Playback State ---------- */
-  const [current, setCurrent] = useState(null)
+  const [current, setCurrent] = useState(loadSavedStation)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [volume, setVolume] = useState(85)
+  const [isNavigating, setIsNavigating] = useState(false)
+  // True when autoplay/resume was blocked by the browser and the user
+  // needs to tap play once. Keeps the station loaded in the meantime.
+  const [resumeHint, setResumeHint] = useState(false)
+
+  /* ---------- Theme (dark / light) ---------- */
+  const [theme, setTheme] = useState(getInitialTheme)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    try {
+      localStorage.setItem(THEME_KEY, theme)
+    } catch {}
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+  }, [])
   const [showNowPlaying, setShowNowPlaying] = useState(() => {
     try {
       const tab = new URLSearchParams(window.location.search).get('tab')
@@ -456,6 +496,15 @@ export default function HomeScreen() {
   const candidatesRef = useRef([])
   const currentRef = useRef(null)
   const playCandidateRef = useRef(null)
+  // Whether the user wants audio playing (true) or paused (false).
+  // Survives OS-level interruptions so we can auto-resume when possible.
+  const wantsPlayRef = useRef(false)
+  // Guard so the saved station is only auto-started once per page load.
+  const restoredRef = useRef(false)
+  // Guard so a dead-stream recovery attempt can't loop forever.
+  const recoveredRef = useRef(false)
+  // Throttle resume attempts when both visibilitychange and focus fire.
+  const lastResumeAttemptRef = useRef(0)
 
   useEffect(() => { currentRef.current = current }, [current])
 
@@ -463,7 +512,7 @@ export default function HomeScreen() {
    * Counts THIS browser tab as one active listener while a station
    * is playing. trackPlay/trackStop are idempotent per tab, so
    * calling them on every play/pause/switch is safe. */
-  const { trackPlay, trackStop } = useSessionListener()
+  const { count: globalListeners, trackPlay, trackStop } = useSessionListener()
   const lastTrackedStationRef = useRef(null)
 
   useEffect(() => {
@@ -617,7 +666,12 @@ export default function HomeScreen() {
         setIsPlaying(true)
         setIsPaused(false)
         setError(null)
-      }).catch(() => {
+      }).catch((err) => {
+        if (err && err.name === 'NotAllowedError') {
+          setIsPlaying(false)
+          setResumeHint(true)
+          return
+        }
         if (candidatesRef.current.length > 0) playCandidateRef.current()
         else {
           setIsPlaying(false)
@@ -632,6 +686,54 @@ export default function HomeScreen() {
     playCandidateRef.current = playCandidate
   }, [playCandidate])
 
+  /* Reconnect to the live edge and resume playback. Used after an OS
+   * interruption (phone call, another app grabbing the audio session,
+   * screen lock) because iOS pauses web audio without resuming it. */
+  const resumeStream = useCallback((station, { reload = true, attempt = 0 } = {}) => {
+    const a = audioRef.current
+    const st = station || currentRef.current
+    if (!a || !st) return
+    const urls = streamCandidates(st)
+    if (!urls.length) return
+    // Avoid spinning if a dead stream or a browser blocks playback repeatedly.
+    if (recoveredRef.current && attempt > 1) return
+    setResumeHint(false)
+    setError(null)
+    if (reload) {
+      const [first, ...rest] = urls
+      candidatesRef.current = rest
+      a.src = first
+      a.load()
+    }
+    const playPromise = a.play()
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setIsPlaying(true)
+          setIsPaused(false)
+          setResumeHint(false)
+          setError(null)
+          recoveredRef.current = false
+        })
+        .catch((err) => {
+          if (err && err.name === 'NotAllowedError') {
+            setIsPlaying(false)
+            setResumeHint(true)
+            recoveredRef.current = true
+            return
+          }
+          if (attempt < 2 && candidatesRef.current.length > 0) {
+            recoveredRef.current = false
+            playCandidateRef.current()
+          } else {
+            setIsPlaying(false)
+            setResumeHint(true)
+            recoveredRef.current = true
+          }
+        })
+    }
+  }, [streamCandidates])
+
   const startStation = useCallback((st) => {
     const a = audioRef.current
     if (!a) return
@@ -644,9 +746,14 @@ export default function HomeScreen() {
     candidatesRef.current = rest
     setCurrent(st)
     currentRef.current = st
+    wantsPlayRef.current = true
+    setResumeHint(false)
     setIsPaused(false)
     setError(null)
     localStorage.setItem(LAST_KEY, st.stationuuid)
+    try {
+      localStorage.setItem(LAST_STATION_KEY, JSON.stringify(st))
+    } catch {}
 
     // Synchronously set src within the user gesture context
     a.src = first
@@ -657,9 +764,15 @@ export default function HomeScreen() {
         .then(() => {
           setIsPlaying(true)
           setIsPaused(false)
+          setResumeHint(false)
           setError(null)
         })
         .catch((err) => {
+          if (err && err.name === 'NotAllowedError') {
+            setIsPlaying(false)
+            setResumeHint(true)
+            return
+          }
           console.warn('Play attempt failed for:', first, err)
           if (candidatesRef.current.length > 0) {
             playCandidateRef.current()
@@ -692,16 +805,20 @@ export default function HomeScreen() {
       return
     }
     if (!a.paused && isPlaying) {
+      wantsPlayRef.current = false
+      setResumeHint(false)
       a.pause()
       setIsPaused(true)
       setIsPlaying(false)
       return
     }
+    wantsPlayRef.current = true
+    setResumeHint(false)
     setIsPaused(false)
     setError(null)
-    if (!a.src && candidatesRef.current.length > 0) {
-      a.src = candidatesRef.current.shift()
-      a.load()
+    if (!a.src || a.error) {
+      resumeStream(st, { reload: true })
+      return
     }
     const playPromise = a.play()
     if (playPromise !== undefined) {
@@ -709,29 +826,114 @@ export default function HomeScreen() {
         .then(() => {
           setIsPlaying(true)
           setIsPaused(false)
+          setResumeHint(false)
         })
-        .catch(() => {
+        .catch((err) => {
+          if (err && err.name === 'NotAllowedError') {
+            setIsPlaying(false)
+            setResumeHint(true)
+            return
+          }
           if (candidatesRef.current.length > 0) playCandidateRef.current()
+          else resumeStream(st, { reload: true })
         })
     }
-  }, [isPlaying, popularList, stations, startStation])
+  }, [isPlaying, popularList, stations, startStation, resumeStream])
 
   /* ---------- Audio Event Listeners ---------- */
   useEffect(() => {
     const a = audioRef.current
     if (!a) return
-    const onPlaying = () => { setIsPlaying(true); setIsPaused(false); setError(null) }
-    const onPause = () => { if (!currentRef.current) setIsPlaying(false) }
+    const onPlaying = () => { setIsPlaying(true); setIsPaused(false); setResumeHint(false); setError(null) }
+    const onPause = () => { setIsPlaying(false) }
     const onError = () => { if (candidatesRef.current.length > 0) playCandidateRef.current() }
+    const onEnded = () => {
+      if (wantsPlayRef.current) resumeStream(currentRef.current, { reload: true })
+    }
     a.addEventListener('playing', onPlaying)
     a.addEventListener('pause', onPause)
     a.addEventListener('error', onError)
+    a.addEventListener('ended', onEnded)
     return () => {
       a.removeEventListener('playing', onPlaying)
       a.removeEventListener('pause', onPause)
       a.removeEventListener('error', onError)
+      a.removeEventListener('ended', onEnded)
     }
+  }, [resumeStream])
+
+  /* ---------- Restore last station on launch ----------
+   * The station object is persisted (not just the id) so it can render
+   * before the Radio Browser API responds. We immediately try to play;
+   * if iOS blocks autoplay, the station stays loaded and we show a
+   * one-tap "resume" hint instead of losing the selection. */
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    const saved = loadSavedStation()
+    const a = audioRef.current
+    if (!saved || !a) return
+    const urls = streamCandidates(saved)
+    if (!urls.length) return
+    const [first, ...rest] = urls
+    candidatesRef.current = rest
+    currentRef.current = saved
+    setCurrent(saved)
+    wantsPlayRef.current = true
+    a.src = first
+    a.load()
+    const playPromise = a.play()
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setIsPlaying(true)
+          setIsPaused(false)
+          setResumeHint(false)
+          setError(null)
+        })
+        .catch((err) => {
+          if (err && err.name === 'NotAllowedError') {
+            setIsPlaying(false)
+            setResumeHint(true)
+            return
+          }
+          if (candidatesRef.current.length > 0) playCandidateRef.current()
+          else setResumeHint(true)
+        })
+    }
+    // Intentionally run once on mount; volume is synced by its own effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* ---------- Auto-resume after OS interruptions ----------
+   * iOS pauses web audio when a call, lock screen, or another app
+   * (e.g. a video on X) takes the audio session, and does not resume
+   * it when that ends. When we come back to the foreground, reconnect
+   * to the live stream if the user still intends to be playing. */
+  useEffect(() => {
+    const tryResume = () => {
+      if (document.visibilityState !== 'visible') return
+      const a = audioRef.current
+      if (!a || !currentRef.current) return
+      if (!wantsPlayRef.current || !a.paused) return
+      // visibilitychange + focus can both fire; only try once per beat.
+      const now = Date.now()
+      if (now - lastResumeAttemptRef.current < 1500) return
+      lastResumeAttemptRef.current = now
+      resumeStream(currentRef.current, { reload: true })
+    }
+    const onVisibility = () => tryResume()
+    const onFocus = () => tryResume()
+    const onPageShow = (e) => { if (e.persisted) tryResume() }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [resumeStream])
 
   /* ---------- Filtered Stations ---------- */
   const filtered = useMemo(() => {
@@ -796,6 +998,30 @@ export default function HomeScreen() {
     }
     return map
   }, [stations])
+
+  /* Ordered channel list used for Prev/Next navigation */
+  const channelList = useMemo(() => [...allKnownStations.values()], [allKnownStations])
+
+  /**
+   * Navigate to the previous/next station in the channel list,
+   * wrapping around at the ends. Shows a brief loading state.
+   */
+  const navigateChannel = useCallback((direction) => {
+    if (!current) return
+    const list = channelList
+    if (!list.length) return
+    const idx = list.findIndex((st) => st.stationuuid === current.stationuuid)
+    if (idx === -1) return
+    const nextIdx = direction === 'next' ? (idx + 1) % list.length : (idx - 1 + list.length) % list.length
+    const nextStation = list[nextIdx]
+    setIsNavigating(true)
+    // Start synchronously so mobile browsers still treat this as a
+    // user-gesture play; keep the radar sweep visible as a short beat.
+    startStation(nextStation)
+    setTimeout(() => {
+      setIsNavigating(false)
+    }, 600)
+  }, [current, channelList, startStation])
 
   /* ---------- Favorite Stations List ---------- */
   const favoriteStations = useMemo(() => {
@@ -866,23 +1092,61 @@ export default function HomeScreen() {
       {selectedGenre ? null : activeTab === 'explore' ? (
         <header className="hs-explore-header">
           <h1 className="hs-explore-title">Explore</h1>
-          <button
-            className={`hs-icon-btn${showExploreSearch ? ' active' : ''}`}
-            aria-label="Search in Explore"
-            onClick={() => setShowExploreSearch((v) => !v)}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M20 20l-3.8-3.8" />
-            </svg>
-          </button>
+          <div className="hs-actions">
+            <button
+              className="hs-icon-btn"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              onClick={toggleTheme}
+            >
+              {theme === 'dark' ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+                </svg>
+              )}
+            </button>
+            <button
+              className={`hs-icon-btn${showExploreSearch ? ' active' : ''}`}
+              aria-label="Search in Explore"
+              onClick={() => setShowExploreSearch((v) => !v)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.8-3.8" />
+              </svg>
+            </button>
+          </div>
         </header>
       ) : activeTab === 'favorites' ? (
         <header className="hs-explore-header">
           <h1 className="hs-explore-title">Favorites</h1>
-          <span style={{ fontSize: '13px', color: '#94A3B8', fontWeight: 600 }}>
-            {favs.size} saved
-          </span>
+          <div className="hs-actions">
+            <button
+              className="hs-icon-btn"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              onClick={toggleTheme}
+            >
+              {theme === 'dark' ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+                </svg>
+              )}
+            </button>
+            <span style={{ fontSize: '13px', color: 'var(--muted)', fontWeight: 600 }}>
+              {favs.size} saved
+            </span>
+          </div>
         </header>
       ) : (
         <header className="hs-header">
@@ -901,6 +1165,23 @@ export default function HomeScreen() {
           </div>
 
           <div className="hs-actions">
+            <button
+              className="hs-icon-btn"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              onClick={toggleTheme}
+            >
+              {theme === 'dark' ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+                </svg>
+              )}
+            </button>
             <button
               className={`hs-icon-btn${activeTab === 'search' ? ' active' : ''}`}
               aria-label="Search"
@@ -1080,20 +1361,25 @@ export default function HomeScreen() {
               </div>
               <div className="hs-more-row">
                 <span className="hs-info-key">Active Listeners</span>
-                <span className="hs-info-val">
-                  <span data-listener-count>0</span> now
-                </span>
+                <span className="hs-info-val">{globalListeners} now</span>
               </div>
             </div>
 
             <div className="hs-more-card">
               <h3 className="hs-more-title">Controls & Storage</h3>
               <div className="hs-more-row">
+                <span>Appearance</span>
+                <button className="hs-more-btn" onClick={toggleTheme}>
+                  {theme === 'dark' ? 'Dark' : 'Light'} mode
+                </button>
+              </div>
+              <div className="hs-more-row">
                 <span>Reset Cache & Reload</span>
                 <button
                   className="hs-more-btn"
                   onClick={() => {
                     localStorage.removeItem(LAST_KEY)
+                    localStorage.removeItem(LAST_STATION_KEY)
                     window.location.reload()
                   }}
                 >
@@ -1439,15 +1725,21 @@ export default function HomeScreen() {
           <div className="hs-mp-meta">
             <div className="hs-mp-title">{current.name}</div>
             <div className="hs-mp-subtitle">
-              {isPlaying && (
-                <span className="hs-eq-bars" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </span>
+              {resumeHint && !isPlaying ? (
+                <span className="hs-mp-resume" role="status">Tap ▶ to resume</span>
+              ) : (
+                <>
+                  {isPlaying && (
+                    <span className="hs-eq-bars" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  )}
+                  <span>{current.country || 'Nigeria'} • {formatFirstTags(current)}</span>
+                </>
               )}
-              <span>{current.country || 'Nigeria'} • {formatFirstTags(current)}</span>
             </div>
           </div>
           <button
@@ -1566,6 +1858,8 @@ export default function HomeScreen() {
         <NowPlayingScreen
           station={current || EXPLORE_AFROBEATS[0]}
           isPlaying={isPlaying}
+          listeners={globalListeners}
+          needsResume={resumeHint && !isPlaying}
           onTogglePlay={() => {
             if (!current) startStation(EXPLORE_AFROBEATS[0])
             else togglePlay()
@@ -1578,6 +1872,9 @@ export default function HomeScreen() {
           }}
           volume={volume}
           onVolumeChange={setVolume}
+          onPrevChannel={() => navigateChannel('prev')}
+          onNextChannel={() => navigateChannel('next')}
+          isLoading={isNavigating}
         />
       )}
 

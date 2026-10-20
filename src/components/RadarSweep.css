@@ -1,0 +1,133 @@
+/* ============================================================
+   RADAR SWEEP LOADER — theme-aware (white in dark, blue in light)
+   ============================================================ */
+
+.rs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--heading);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.rs-label {
+  margin-top: 18px;
+  color: rgb(var(--radar-rgb) / 0.85);
+  font-weight: 600;
+  animation: rsLabelFade 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes rsLabelFade {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+/* Radar canvas */
+.rs-radar {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--radar-rgb) / 0.06) 0%,
+    rgb(var(--radar-rgb) / 0.02) 55%,
+    transparent 72%
+  );
+}
+
+/* Rotating sweep — conic gradient cone */
+.rs-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgb(var(--radar-rgb) / 0.55) 0deg,
+    rgb(var(--radar-rgb) / 0.22) 28deg,
+    rgb(var(--radar-rgb) / 0.06) 70deg,
+    transparent 110deg,
+    transparent 360deg
+  );
+  animation: rsSweepSpin 1.5s linear infinite;
+  will-change: transform;
+}
+
+@keyframes rsSweepSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Concentric rings */
+.rs-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--radar-rgb) / 0.16);
+  pointer-events: none;
+}
+
+.rs-ring-outer {
+  inset: 6px;
+}
+
+.rs-ring-middle {
+  inset: 30px;
+  border-color: rgb(var(--radar-rgb) / 0.12);
+}
+
+.rs-ring-inner {
+  inset: 54px;
+  border-color: rgb(var(--radar-rgb) / 0.1);
+}
+
+/* Crosshair ticks */
+.rs-tick {
+  position: absolute;
+  background: rgb(var(--radar-rgb) / 0.35);
+  border-radius: 1px;
+}
+
+.rs-tick-n,
+.rs-tick-s {
+  left: 50%;
+  width: 1px;
+  height: 8px;
+  transform: translateX(-50%);
+}
+.rs-tick-n { top: 6px; }
+.rs-tick-s { bottom: 6px; }
+
+.rs-tick-e,
+.rs-tick-w {
+  top: 50%;
+  height: 1px;
+  width: 8px;
+  transform: translateY(-50%);
+}
+.rs-tick-e { right: 6px; }
+.rs-tick-w { left: 6px; }
+
+/* Center dot */
+.rs-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  background: rgb(var(--radar-rgb));
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgb(var(--radar-rgb) / 0.95), 0 0 24px rgb(var(--radar-rgb) / 0.5);
+  z-index: 3;
+}
