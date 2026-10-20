@@ -52,9 +52,11 @@ export function useSessionListener() {
 
   // Subscribe to the live app-wide total
   useEffect(() => {
-    if (!firebaseReady) return
+    if (!firebaseReady) return undefined // nothing to subscribe to
+
+    let unsub = () => {}
     const totalRef = ref(db, totalPath())
-    const unsub = onValue(totalRef, (snap) => {
+    unsub = onValue(totalRef, (snap) => {
       const count = snap.val() ?? 0
       stateRef.current.count = count
       // Update any element with [data-listener-count] in the DOM
@@ -134,9 +136,11 @@ export function useStationListener(stationId) {
   const stateRef = useRef({ count: 0 })
 
   useEffect(() => {
-    if (!stationId || !firebaseReady) return
+    if (!stationId || !firebaseReady) return undefined
+
+    let unsub = () => {}
     const stationRef = ref(db, stationPath(stationId))
-    const unsub = onValue(stationRef, (snap) => {
+    unsub = onValue(stationRef, (snap) => {
       const count = snap.val() ?? 0
       stateRef.current.count = count
       document
