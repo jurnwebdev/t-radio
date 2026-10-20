@@ -1608,11 +1608,17 @@ export default function HomeScreen() {
       ) : (
         <header className="hs-header">
           <div className="hs-brand">
-            <img
-              src="/tradio-logo.webp"
-              alt="T-Radio"
-              className="hs-brand-wordmark"
-            />
+            <div className="hs-brand-wave" aria-hidden="true">
+              <span style={{ height: '7px' }} />
+              <span style={{ height: '16px' }} />
+              <span style={{ height: '22px' }} />
+              <span style={{ height: '13px' }} />
+              <span style={{ height: '6px' }} />
+            </div>
+            <h1 className="hs-brand-title">
+              <span className="hs-brand-t">T-</span>
+              <span className="hs-brand-radio">RADIO</span>
+            </h1>
           </div>
 
           <div className="hs-actions">
