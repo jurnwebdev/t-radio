@@ -258,6 +258,15 @@ Baseline lint warnings that already exist (do **not** treat as regressions):
 > Append a new entry at the **top** of this list after each work session.
 > Include: date, agent, phases touched, what changed, what's next, any blockers.
 
+### 2026-10-20 — Presence tracking committed
+- Committed the previously-uncommitted presence rewrite of `src/useListenerCount.js`
+  (commit `1639595`). No logic changes were made — committed as found, after
+  confirming `npm run build` passes.
+- New lint warning introduced by that file: unused `useRef` import (tracked in Phase 5).
+- The listener schema `listeners/active/{sessionId}` is now the committed baseline;
+  Phases 1–3 should build on it.
+- **Next:** still awaiting D1–D5 before Phase 1 starts.
+
 ### 2026-10-20 — Planning session
 - Wrote this plan. No code changed.
 - Established current-state facts in §1 by reading the source.
@@ -269,6 +278,5 @@ Baseline lint warnings that already exist (do **not** treat as regressions):
 - Consequence recorded: there are **no per-station counters any more**; the
   dashboard must derive "active per channel" by scanning `listeners/active`.
 - **Next:** user must answer D1–D5 (or say "go with defaults"), then start Phase 1.
-- **Blockers:** decisions pending; RTDB rules unverified; the presence change is
-  uncommitted in git.
+- **Blockers:** decisions pending; RTDB rules unverified.
 
