@@ -1,132 +1,179 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { ref, onValue, increment, set } from 'firebase/database'
+import { ref, onValue, set, remove, onDisconnect } from 'firebase/database'
 import { db, firebaseReady } from './firebase'
 
-function bumpCounter(path, delta) {
-  if (!firebaseReady || !db) {
-    console.log(`[T-Radio] skip bump ${path} ${delta} — firebase not ready`)
-    return
-  }
-  try {
-    // increment() returns a server-value marker (like {'.sv':{increment:1}}).
-    // It must be written as a VALUE via set(), not passed as the whole
-    // values argument to update() (that makes '.sv' an invalid path key).
-    set(ref(db, path), increment(delta))
-      .then(() => console.log(`[T-Radio] ✓ ${path} ${delta > 0 ? '+' : ''}${delta}`))
-      .catch((err) => console.error(`[T-Radio] ✗ write failed ${path} ${delta}:`, err))
-  } catch (err) {
-    console.error('[T-Radio] bumpCounter threw:', err)
-  }
-}
-
 /* ----------------------------------------------------------------
- * useListenerCount — real-time "how many are listening now"
+ * useListenerCount — Real-time presence listener tracking
  *
- * A browser tab counts as ONE listener. Even if multiple
- * components are watching the same station, each tab
- * increments the counter exactly once.
- *
- * Counters:
- *   listeners/total        -> app-wide "X listening now"
- *   listeners/{stationId}   -> per-station "X listening to Y now"
- *
- * All writes go through useSessionListener's trackPlay/trackStop.
- * useStationListener is read-only — it just subscribes to display.
+ * Architecture:
+ * - Each browser tab is assigned a unique sessionId.
+ * - When audio starts playing, the tab registers under:
+ *     listeners/active/{sessionId} = { stationId, updatedAt }
+ * - An onDisconnect(sessionRef).remove() handler is registered with Firebase.
+ *   If the tab closes, crashes, or loses connection, the Firebase server
+ *   automatically removes this record immediately.
+ * - When audio is paused/stopped, the record is removed by the client.
+ * - The live global listener count is simply the number of active sessions
+ *   under listeners/active. No counter drift, no ghost counts.
  * ---------------------------------------------------------------- */
 
-// Per-tab guard: has the total counter been incremented for this tab?
-let totalIncremented = false
+// Unique session identifier for this browser tab
+const tabSessionId =
+  (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    ? crypto.randomUUID()
+    : `tab_${Math.random().toString(36).slice(2)}_${Date.now()}`
 
-// Per-tab, per-station: has this station counter been incremented?
-const stationCounted = new Map() // stationId -> true
+let currentStationId = null
+let isTrackingActive = false
+let stopTimer = null
 
-// Which stations this tab has active, so cleanup can roll back each
-const activeStations = new Set()
-
-function totalPath() {
-  return 'listeners/total'
-}
-
-function stationPath(stationId) {
-  return `listeners/${stationId}`
+function getSessionRef() {
+  if (!firebaseReady || !db) return null
+  return ref(db, `listeners/active/${tabSessionId}`)
 }
 
 /**
  * Use ONCE at the app root (e.g. HomeScreen).
- * Subscribes to the live total and returns trackPlay / trackStop
- * functions that are safe to call from anywhere in the app.
- *
- * Double-counting is impossible — each browser tab increments
- * the total exactly once, and each station exactly once.
+ * Subscribes to the live total active listeners and returns trackPlay / trackStop
+ * functions safe to call from anywhere in the app.
  */
 export function useSessionListener() {
   const [count, setCount] = useState(0)
 
-  // Subscribe to the live app-wide total
+  // Subscribe to live active listeners across all stations
   useEffect(() => {
-    if (!firebaseReady) return undefined // nothing to subscribe to
+    if (!firebaseReady || !db) return undefined
 
-    let unsub = () => {}
-    const totalRef = ref(db, totalPath())
-    unsub = onValue(totalRef, (snap) => {
-      const next = snap.val() ?? 0
-      console.log(`[T-Radio] RTDB connected — total listeners: ${next}`)
-      setCount(next)
-    }, (err) => {
-      console.error('[T-Radio] RTDB subscribe failed:', err)
-    })
+    let unsubActive = () => {}
+    let unsubConnected = () => {}
 
-    // On unmount, roll back every station this tab had active
-    return () => {
-      unsub()
-      activeStations.forEach((stationId) => {
-        if (stationCounted.get(stationId)) {
-          bumpCounter(stationPath(stationId), -1)
-          stationCounted.set(stationId, false)
+    try {
+      const activeRef = ref(db, 'listeners/active')
+      unsubActive = onValue(
+        activeRef,
+        (snap) => {
+          const data = snap.val() || {}
+          const activeCount = Object.keys(data).length
+          console.log(`[T-Radio] RTDB active listeners: ${activeCount}`)
+          setCount(activeCount)
+        },
+        (err) => {
+          console.error('[T-Radio] RTDB active listeners subscribe failed:', err)
+        }
+      )
+
+      // Re-arm presence if network disconnects and reconnects while listening
+      const connectedRef = ref(db, '.info/connected')
+      unsubConnected = onValue(connectedRef, (snap) => {
+        if (snap.val() === true && isTrackingActive && currentStationId) {
+          const sessionRef = getSessionRef()
+          if (sessionRef) {
+            set(sessionRef, {
+              stationId: currentStationId,
+              updatedAt: Date.now(),
+            }).catch(() => {})
+            onDisconnect(sessionRef).remove().catch(() => {})
+          }
         }
       })
-      activeStations.clear()
-      if (totalIncremented) {
-        bumpCounter(totalPath(), -1)
-        totalIncremented = false
+    } catch (err) {
+      console.error('[T-Radio] Failed to initialize listeners listener:', err)
+    }
+
+    const handleBeforeUnload = () => {
+      if (isTrackingActive) {
+        const sessionRef = getSessionRef()
+        if (sessionRef) {
+          remove(sessionRef).catch(() => {})
+        }
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      unsubActive()
+      unsubConnected()
+      if (stopTimer) {
+        clearTimeout(stopTimer)
+        stopTimer = null
+      }
+      if (isTrackingActive) {
+        isTrackingActive = false
+        const sessionRef = getSessionRef()
+        if (sessionRef) {
+          remove(sessionRef).catch(() => {})
+        }
       }
     }
   }, [])
 
   /**
    * Call when audio starts playing a station.
-   * Increments the station counter (once per station per tab)
-   * and the total counter (once per tab).
+   * Registers this tab's session in listeners/active and arms onDisconnect.
    */
   const trackPlay = useCallback((stationId) => {
     if (!stationId) return
-    activeStations.add(stationId)
-    if (!stationCounted.get(stationId)) {
-      bumpCounter(stationPath(stationId), 1)
-      stationCounted.set(stationId, true)
+
+    if (stopTimer) {
+      clearTimeout(stopTimer)
+      stopTimer = null
     }
-    if (!totalIncremented) {
-      bumpCounter(totalPath(), 1)
-      totalIncremented = true
-    }
+
+    currentStationId = stationId
+    isTrackingActive = true
+
+    const sessionRef = getSessionRef()
+    if (!sessionRef) return
+
+    set(sessionRef, {
+      stationId,
+      updatedAt: Date.now(),
+    })
+      .then(() => {
+        console.log(`[T-Radio] ✓ Active listener registered (${stationId})`)
+      })
+      .catch((err) => {
+        console.error('[T-Radio] ✗ Failed to register active listener:', err)
+      })
+
+    onDisconnect(sessionRef)
+      .remove()
+      .catch((err) => {
+        console.error('[T-Radio] ✗ onDisconnect setup failed:', err)
+      })
   }, [])
 
   /**
    * Call when the user pauses / stops the station.
-   * Decrements the station counter; if no stations remain active
-   * in this tab, also decrements the total.
+   * Debounced slightly to prevent momentary flicker during station switching.
    */
   const trackStop = useCallback((stationId) => {
-    if (!stationId) return
-    activeStations.delete(stationId)
-    if (stationCounted.get(stationId)) {
-      bumpCounter(stationPath(stationId), -1)
-      stationCounted.set(stationId, false)
+    if (stationId && currentStationId && stationId !== currentStationId) {
+      return
     }
-    if (activeStations.size === 0 && totalIncremented) {
-      bumpCounter(totalPath(), -1)
-      totalIncremented = false
-    }
+
+    if (stopTimer) clearTimeout(stopTimer)
+
+    stopTimer = setTimeout(() => {
+      isTrackingActive = false
+      currentStationId = null
+
+      const sessionRef = getSessionRef()
+      if (!sessionRef) return
+
+      onDisconnect(sessionRef)
+        .cancel()
+        .catch(() => {})
+
+      remove(sessionRef)
+        .then(() => {
+          console.log('[T-Radio] ✓ Active listener session removed')
+        })
+        .catch((err) => {
+          console.error('[T-Radio] ✗ Failed to remove active listener:', err)
+        })
+    }, 120)
   }, [])
 
   return {
@@ -139,31 +186,38 @@ export function useSessionListener() {
 /**
  * READ-ONLY subscription for a single station's live "X listening now"
  * count. Updates DOM elements with [data-station-listener-count]
- * so the count displays without triggering React re-renders.
+ * and returns the count.
  */
 export function useStationListener(stationId) {
-  const stateRef = useRef({ count: 0 })
+  const [count, setCount] = useState(0)
 
   useEffect(() => {
-    if (!stationId || !firebaseReady) return undefined
+    if (!stationId || !firebaseReady || !db) return undefined
 
     let unsub = () => {}
-    const stationRef = ref(db, stationPath(stationId))
-    unsub = onValue(stationRef, (snap) => {
-      const count = snap.val() ?? 0
-      stateRef.current.count = count
-      document
-        .querySelectorAll(`[data-station-listener-count="${stationId}"]`)
-        .forEach((el) => {
-          el.textContent = String(count)
-        })
-    })
+    try {
+      const activeRef = ref(db, 'listeners/active')
+      unsub = onValue(activeRef, (snap) => {
+        const data = snap.val() || {}
+        let stationCount = 0
+        for (const key of Object.keys(data)) {
+          if (data[key]?.stationId === stationId) {
+            stationCount++
+          }
+        }
+        setCount(stationCount)
+        document
+          .querySelectorAll(`[data-station-listener-count="${stationId}"]`)
+          .forEach((el) => {
+            el.textContent = String(stationCount)
+          })
+      })
+    } catch (err) {
+      console.error('[T-Radio] useStationListener error:', err)
+    }
+
     return () => unsub()
   }, [stationId])
 
-  return {
-    get count() {
-      return stateRef.current.count
-    },
-  }
+  return { count }
 }
