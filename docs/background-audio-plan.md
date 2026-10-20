@@ -156,10 +156,16 @@ resume the audio — it just re-opens the page.
 
 ## Summary table
 
-| Change | File | Lines | Fixes |
-|---|---|---|---|
-| `AudioContext` keep-alive | `src/useMediaSession.js` | ~30 | Stops the radio from dying in background (installed PWA, both OSes) |
-| "Add to Home Screen" banner | `src/HomeScreen.jsx` + CSS | ~40 | Tells iOS users *to install* so the above actually works |
-| `launch_handler` | `vite.config.js` | 1 | Prevents two-instance audio fight on Android |
-| (existing) MediaSession | `src/useMediaSession.js` | already done | Lock-screen media widget |
-| (existing) Wake Lock | `src/useMediaSession.js` | already done | Screen stays lit while actively listening (foreground only) |
+| Change | File | Status |
+|---|---|---|
+| `AudioContext` keep-alive | `src/useMediaSession.js` | ✅ added — holds the audio session open while playing, so the radio keeps going in the background on an installed PWA (both OSes) |
+| "Add to Home Screen" install banner | `src/usePwaInstall.js` + `src/HomeScreen.jsx` + `src/HomeScreen.css` | ✅ added — one-time dismissible banner; one-tap install prompt on Android/Chrome, manual Share → Add-to-Home-Screen steps on iOS |
+| `launch_handler` manifest hint | `vite.config.js` | ✅ added — prevents two instances fighting over the audio session on Android |
+| (existing) MediaSession | `src/useMediaSession.js` | already done — lock-screen media widget |
+| (existing) Wake Lock | `src/useMediaSession.js` | already done — screen stays lit while actively listening (foreground only) |
+
+## Verify on a real device
+
+1. **iOS**: open T-Radio in Safari → install banner shows "Install T-Radio to keep the radio playing with your screen off / Tap Share, then 'Add to Home Screen.'" → share → Add to Home Screen → start the radio → lock the phone → wait 30s → unlock → radio should still be playing.
+2. **Android**: open T-Radio in Chrome → install banner shows an "Install" button → tap it → start the radio → press home → wait 30s → reopen → radio should still be playing.
+3. **Either**: after installing, the banner disappears (standalone detection + permanent dismiss in `localStorage`). To re-test, clear site data / reinstall.

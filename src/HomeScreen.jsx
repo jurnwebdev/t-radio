@@ -8,6 +8,7 @@ import { trackVisit, trackStatsPlay } from './useStatsTracker'
 import { logAppEvent } from './firebase'
 import { findStationBySlug, buildShareUrl, stationSlug } from './stationSlug'
 import { setShareOgMeta } from './shareOg'
+import { usePwaInstall } from './usePwaInstall'
 import './HomeScreen.css'
 
 import afrobeatImg from './assets/genres/afrobeat.svg'
@@ -583,6 +584,17 @@ export default function HomeScreen() {
 
   /* ---------- Theme (dark / light) ---------- */
   const [theme, setTheme] = useState(getInitialTheme)
+
+  /* ---------- PWA install banner (one-time, dismissible) ----------
+   * Shown when the app is running in a plain browser tab (not installed),
+   * so the user can install it and get background playback. */
+  const {
+    shouldShow: showInstallBanner,
+    platform: installPlatform,
+    canPrompt: installCanPrompt,
+    promptInstall,
+    dismiss: dismissInstall,
+  } = usePwaInstall()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -1523,6 +1535,41 @@ export default function HomeScreen() {
             className="hs-deeplink-dismiss"
             onClick={() => setDeepLinkMissing(false)}
             aria-label="Dismiss"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* ================= INSTALL BANNER (one-time, dismissible) =================
+          Shown only in a plain browser tab (not installed). Android/Chrome get
+          a one-tap "Install" prompt; iOS Safari gets the manual Share →
+          Add-to-Home-Screen steps, since it has no install API. */}
+      {showInstallBanner && (
+        <div className="hs-install-banner" role="region" aria-label="Install T-Radio">
+          <div className="hs-install-banner-text">
+            <span className="hs-install-banner-title">
+              {installPlatform === 'ios'
+                ? 'Install T-Radio to keep the radio playing with your screen off'
+                : 'Install T-Radio for background playback'}
+            </span>
+            <span className="hs-install-banner-sub">
+              {installPlatform === 'ios'
+                ? 'Tap Share, then \u201CAdd to Home Screen.\u201D'
+                : installCanPrompt
+                  ? 'One tap \u2014 T-Radio will live on your home screen.'
+                  : 'Add it to your home screen to keep listening hands-free.'}
+            </span>
+          </div>
+          {installCanPrompt && (
+            <button className="hs-install-banner-cta" onClick={promptInstall}>
+              Install
+            </button>
+          )}
+          <button
+            className="hs-deeplink-dismiss"
+            onClick={dismissInstall}
+            aria-label="Dismiss install banner"
           >
             &times;
           </button>

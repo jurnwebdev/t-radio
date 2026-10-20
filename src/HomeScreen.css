@@ -1329,3 +1329,67 @@
   color: var(--hs-text);
   border-color: var(--hs-gold);
 }
+
+/* ============ INSTALL BANNER ============
+   One-time, dismissible prompt shown at the top of the screen when the
+   app is running in a plain browser tab (not installed). On iOS there is
+   no install API, so we show the manual Share → Add-to-Home-Screen steps;
+   on Android/Chrome we can fire a one-tap install prompt instead. */
+.hsd-install-banner {
+  position: relative;
+  margin: 10px 14px 0;
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.25);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgb(var(--accent-rgb) / 0.14), rgb(var(--accent-rgb) / 0.05));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hsd-install-banner-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hsd-install-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--heading);
+}
+
+.hsd-install-banner-sub {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.hsd-install-banner-cta {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
+  background: rgb(var(--accent-rgb) / 0.16);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hsd-install-banner-cta:hover {
+  background: rgb(var(--accent-rgb) / 0.28);
+}
+
+.hsd-install-banner .hsd-deeplink-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+}

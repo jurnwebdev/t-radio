@@ -80,6 +80,48 @@ export function useMediaSession({ station, isPlaying, nowPlaying, handlersRef })
     } catch { /* noop */ }
   }, [isPlaying])
 
+  /* Keep the audio session alive while playing.
+   *
+   * A plain <audio> element gets its pipeline suspended by the browser when
+   * the page goes to the background (screen off / another app takes the
+   * audio session). The Web Audio API is the one pipeline the browser keeps
+   * open in the background for a PWA — so while actively playing we hold a
+   * silent AudioContext (0-gain node) to keep the audio session open.
+   *
+   * This only matters for an *installed* PWA; on a plain browser tab the
+   * OS still kills background audio regardless. Created when isPlaying
+   * turns true, released when it turns false. */
+  const audioContextRef = useRef(null)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!isPlaying) {
+      try {
+        audioContextRef.current?.suspend().catch(() => {})
+      } catch { /* noop */ }
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close().catch(() => {}) } catch { /* noop */ }
+        audioContextRef.current = null
+      }
+      return
+    }
+    const Ctx = window.AudioContext || window.webkitAudioContext
+    if (!Ctx) return
+    try {
+      const ctx = new Ctx()
+      const gain = ctx.createGain()
+      gain.gain.value = 0 // silent — just holds the audio session open
+      gain.connect(ctx.destination)
+      audioContextRef.current = ctx
+      ctx.resume().catch(() => {})
+    } catch { /* keep-alive is best-effort; never block playback */ }
+    return () => {
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close().catch(() => {}) } catch { /* noop */ }
+        audioContextRef.current = null
+      }
+    }
+  }, [isPlaying])
+
   /* Keep the screen awake while actively listening.
    * The Wake Lock API prevents the device screen from sleeping during
    * playback so the user can keep listening hands-free.
