@@ -181,7 +181,7 @@ function BarRow({ rank, name, value, max, sub, live = false }) {
   )
 }
 
-export default function AnalyticsDashboard({ onBack }) {
+export default function AnalyticsDashboard({ onBack, onLock }) {
   const [range, setRange] = useState('7d')
 
   /* The dashboard replaces HomeScreen, so the theme attribute on <html>
@@ -196,13 +196,12 @@ export default function AnalyticsDashboard({ onBack }) {
     } catch {}
   }, [])
 
-  const activeNow = useActiveCount()
+  const { count: activeNow } = useActiveCount()
   const byStation = useListenersByStation()
-  const stats = useStatsCounters() // { playsTotal, visitorsTotal, plays, stationMeta, daily?, ... }
-  const daily = useDailySeries(TREND_DAYS)
+  const { stats, ready, error } = useStatsCounters() // { playsTotal, visitorsTotal, plays, stationMeta, daily?, ... }
+  const { series: daily } = useDailySeries(TREND_DAYS)
   const lastActive = useLastActiveByStation()
 
-  const ready = stats !== null
   const totalPlays = stats?.playsTotal || 0
   const totalVisitors = stats?.visitorsTotal || 0
   const today = daily?.[daily.length - 1]
@@ -300,6 +299,14 @@ export default function AnalyticsDashboard({ onBack }) {
           <h1>T-Radio · Analytics</h1>
           <p>Live owner dashboard</p>
         </div>
+        {onLock && (
+          <button className="dash-lock" onClick={onLock} aria-label="Lock the dashboard" title="Lock">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="4" y="11" width="16" height="10" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          </button>
+        )}
         <span className={`dash-live-dot${activeNow > 0 ? ' on' : ''}`} title="Listening now">
           <i />
           {activeNow}
@@ -321,6 +328,12 @@ export default function AnalyticsDashboard({ onBack }) {
             </button>
           ))}
         </div>
+
+        {error && (
+          <div className="dash-error" role="alert">
+            <strong>Could not read analytics.</strong> {error}
+          </div>
+        )}
 
         {!ready ? (
           <div className="dash-skeletons" aria-busy="true">
