@@ -1,9 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { ref, onValue, increment } from 'firebase/database'
-import { db } from './firebase'
-
-// Failsafe: if Firebase env vars are missing, skip all RTDB writes
-const firebaseReady = Boolean(import.meta.env.VITE_FIREBASE_API_KEY)
+import { db, firebaseReady } from './firebase'
 
 function bumpCounter(path, delta) {
   if (!firebaseReady) return
@@ -55,6 +52,7 @@ export function useSessionListener() {
 
   // Subscribe to the live app-wide total
   useEffect(() => {
+    if (!firebaseReady) return
     const totalRef = ref(db, totalPath())
     const unsub = onValue(totalRef, (snap) => {
       const count = snap.val() ?? 0
@@ -136,7 +134,7 @@ export function useStationListener(stationId) {
   const stateRef = useRef({ count: 0 })
 
   useEffect(() => {
-    if (!stationId) return
+    if (!stationId || !firebaseReady) return
     const stationRef = ref(db, stationPath(stationId))
     const unsub = onValue(stationRef, (snap) => {
       const count = snap.val() ?? 0
