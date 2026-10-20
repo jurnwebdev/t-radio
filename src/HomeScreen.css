@@ -1240,3 +1240,43 @@
   background: var(--hover-strong);
 }
 
+
+/* ============ DEEP LINK NOTICE ============ */
+/* Shown when a shared /?station=<slug> link points at a station that
+   is no longer available. */
+.hs-deeplink-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 14px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hs-border);
+  border-radius: 12px;
+  background: var(--hs-surface);
+  color: var(--hs-text);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.hs-deeplink-note span {
+  flex: 1;
+  min-width: 0;
+}
+
+.hs-deeplink-dismiss {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--hs-border);
+  background: transparent;
+  color: var(--hs-muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hs-deeplink-dismiss:hover {
+  color: var(--hs-text);
+  border-color: var(--hs-gold);
+}

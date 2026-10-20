@@ -19,6 +19,7 @@ export function getCountryFlag(country = '') {
 
 export function NowPlayingScreen({
   station,
+  shareUrl = '',
   isPlaying,
   listeners = 0,
   needsResume = false,
@@ -33,8 +34,23 @@ export function NowPlayingScreen({
   onPrevChannel,
   onNextChannel,
   isLoading = false,
+  notice = '',
 }) {
   const [toastMessage, setToastMessage] = useState('')
+
+  /* Local mirror of the volume. The slider is driven from here so a drag
+   * stays responsive even while the parent re-renders (iOS is fussy about
+   * re-rendering a control mid-drag). */
+  const [localVolume, setLocalVolume] = useState(volume)
+
+  useEffect(() => {
+    setLocalVolume(volume)
+  }, [volume])
+
+  const handleVolume = (next) => {
+    setLocalVolume(next)
+    if (onVolumeChange) onVolumeChange(next)
+  }
 
   useEffect(() => {
     if (!toastMessage) return
@@ -58,24 +74,29 @@ export function NowPlayingScreen({
   // Ensure 2-3 tags are shown
   const displayTags = tagList.length > 0 ? tagList.slice(0, 3) : ['Afrobeats', 'Music']
 
+  /* Share the station itself, not the app home: the link carries the
+   * station slug (?station=cool-fm-96-9) so opening it loads that
+   * station straight into Now Playing. */
   const handleShare = async () => {
-    const text = `Listening to ${station.name} on T-Radio!`
-    const url = window.location.origin
+    const text = `Listen to ${station.name} live on T-Radio`
+    const url = shareUrl || window.location.origin
+
     if (navigator.share) {
       try {
         await navigator.share({ title: station.name, text, url })
-      } catch {
-        // Share cancelled or failed, fall back to copy
+        return
+      } catch (err) {
+        // Dismissing the share sheet is not a failure — stay quiet.
+        if (err && err.name === 'AbortError') return
+        // Any other error falls through to the clipboard below.
       }
-    } else if (navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(`${text} ${url}`)
-        setToastMessage('Link copied to clipboard!')
-      } catch {
-        setToastMessage(`Playing ${station.name}`)
-      }
-    } else {
-      setToastMessage(`Playing ${station.name}`)
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`)
+      setToastMessage('Link copied to clipboard!')
+    } catch {
+      setToastMessage('Could not copy the link')
     }
   }
 
@@ -88,9 +109,9 @@ export function NowPlayingScreen({
   return (
     <div className="np-screen" role="dialog" aria-modal="true" aria-label="Now Playing">
       {/* Toast Notification */}
-      {toastMessage && (
+      {(toastMessage || notice) && (
         <div className="np-toast" role="status">
-          {toastMessage}
+          {toastMessage || notice}
         </div>
       )}
 
@@ -294,13 +315,12 @@ export function NowPlayingScreen({
               type="range"
               min="0"
               max="100"
-              value={volume}
-              onChange={(e) => onVolumeChange && onVolumeChange(Number(e.target.value))}
+              value={localVolume}
+              onChange={(e) => handleVolume(Number(e.target.value))}
+              onInput={(e) => handleVolume(Number(e.target.value))}
               className="np-volume-slider"
               aria-label="Volume"
-              style={{
-                background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${volume}%, var(--slider-track) ${volume}%, var(--slider-track) 100%)`,
-              }}
+              style={{ '--vol': `${localVolume}%` }}
             />
           </div>
           <svg className="np-vol-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

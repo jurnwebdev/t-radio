@@ -136,6 +136,13 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* The body scrolls, so its blocks keep their natural size instead of
+   being crushed by the flex column when the content is taller than
+   the viewport (the wave was collapsing to 4px because of this). */
+.np-body > * {
+  flex-shrink: 0;
+}
+
 /* Station Cover Card */
 .np-cover-wrap {
   width: 100%;
@@ -332,11 +339,17 @@
   font-weight: 500;
 }
 
-/* Waveform Visualizer */
+/* Waveform Visualizer
+   NOTE: .np-body is a scrolling flex column. Without flex-shrink: 0 the
+   visualizer was the only shrinkable child, so it absorbed the whole
+   overflow and collapsed to the 4px min-height of its bars — the wave
+   had no room to move and looked like a row of dots. */
 .np-visualizer {
   width: 100%;
   max-width: 300px;
   height: 28px;
+  min-height: 28px;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -360,13 +373,13 @@
 
 @keyframes npWaveBounce {
   0% {
-    height: 14%;
+    height: 24%;
   }
   50% {
     height: var(--bar-max-h);
   }
   100% {
-    height: 28%;
+    height: 24%;
   }
 }
 
@@ -551,18 +564,43 @@
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 5px;
+  /* iOS hit-tests the control's frame, not the painted thumb, so a 5px
+     tall input is practically impossible to grab on a phone. Keep a real
+     44px touch target and draw the thin track inside it. */
+  height: 44px;
+  margin: -13px 0;
+  background: transparent;
   border-radius: 3px;
   outline: none;
   cursor: pointer;
-  margin: 0;
+  /* Stop the scrollable Now Playing body from stealing the drag. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Dragging must not select text on iOS. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* The visible track lives in the pseudo element so the input itself can
+   stay tall enough to touch. The fill uses --vol, set from React. */
+.np-volume-slider::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--vol, 0%),
+    var(--slider-track) var(--vol, 0%),
+    var(--slider-track) 100%
+  );
 }
 
 .np-volume-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  margin-top: -6.5px;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.6);
@@ -570,9 +608,21 @@
   border: 2px solid #FFFFFF;
 }
 
+.np-volume-slider::-moz-range-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--slider-track);
+}
+
+.np-volume-slider::-moz-range-progress {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
 .np-volume-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 6px rgb(var(--accent-rgb) / 0.6);
