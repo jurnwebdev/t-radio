@@ -11,8 +11,8 @@
 // Cache-Control lets Vercel's CDN absorb the traffic: 1,000 listeners on the
 // same station produce ~1 upstream request per 25s, not 1,000.
 
-const MAX_BYTES = 128 * 1024 // give up if no title within this much audio
-const MAX_BLOCKS = 8 // metadata blocks to inspect (ads often leave them empty)
+const MAX_BYTES = 512 * 1024 // give up if no title within this much audio
+const MAX_BLOCKS = 24 // metadata blocks to inspect (ads often leave them empty)
 const TIMEOUT_MS = 8000
 const USER_AGENT = 'TRadioNowPlaying/1.0 (+https://github.com/jurnwebdev/t-radio)'
 
@@ -111,6 +111,16 @@ async function readIcyTitle(streamUrl, stationName) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   let reader = null
+  let blocks = 0
+  let placeholders = 0
+
+  /**
+   * Why we could not find a title, for the client's retry policy.
+   * A station that only repeats its own name, or publishes empty
+   * metadata blocks, has no song titles to show.
+   */
+  const noTitleReason = () =>
+    placeholders > 0 ? 'station identifiers only' : 'no song titles published'
 
   try {
     const res = await fetch(streamUrl, {
@@ -145,8 +155,6 @@ async function readIcyTitle(streamUrl, stationName) {
     let metaLen = 0
     let metaChunks = []
     let metaRead = 0
-    let blocks = 0
-    let placeholders = 0
     let bytes = 0
 
     while (true) {
@@ -154,7 +162,7 @@ async function readIcyTitle(streamUrl, stationName) {
       if (done) break
 
       bytes += value.length
-      if (bytes > MAX_BYTES) return { available: false, reason: 'no title within budget' }
+      if (bytes > MAX_BYTES) return { available: false, reason: noTitleReason() }
 
       let i = 0
       while (i < value.length) {
@@ -173,7 +181,7 @@ async function readIcyTitle(streamUrl, stationName) {
           metaRead = 0
           if (metaLen === 0) {
             blocks += 1
-            if (blocks >= MAX_BLOCKS) return { available: false, reason: 'no title in metadata' }
+            if (blocks >= MAX_BLOCKS) return { available: false, reason: noTitleReason() }
             needLen = true
             audioLeft = metaint
           }
@@ -201,21 +209,24 @@ async function readIcyTitle(streamUrl, stationName) {
             // Stop scanning so we don't burn the full timeout on every poll.
             placeholders += 1
             if (placeholders >= 3) {
-              return { available: false, reason: 'no song titles, station identifiers only' }
+              return { available: false, reason: 'station identifiers only' }
             }
           }
 
           blocks += 1
-          if (blocks >= MAX_BLOCKS) return { available: false, reason: 'no title in metadata' }
+          if (blocks >= MAX_BLOCKS) return { available: false, reason: noTitleReason() }
           needLen = true
           audioLeft = metaint
         }
       }
     }
 
-    return { available: false, reason: 'stream ended before metadata' }
+    return { available: false, reason: noTitleReason() }
   } catch (err) {
     const aborted = err && (err.name === 'AbortError' || err.name === 'TimeoutError')
+    // We did read the stream (blocks > 0) but no title turned up — that is
+    // a station without song titles, not an unreachable upstream.
+    if (blocks > 0) return { available: false, reason: noTitleReason() }
     return { available: false, reason: aborted ? 'upstream timeout' : 'upstream unreachable' }
   } finally {
     clearTimeout(timer)

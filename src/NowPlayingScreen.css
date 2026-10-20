@@ -285,6 +285,25 @@
   color: var(--muted);
 }
 
+/* Station publishes no song titles: explain the empty slot. */
+.np-song-empty {
+  width: 100%;
+  max-width: 320px;
+  margin: 14px auto 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  text-align: center;
+}
+
+.np-song-empty-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .np-song-links {
   display: flex;
   gap: 8px;

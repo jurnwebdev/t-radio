@@ -24,6 +24,7 @@ export function NowPlayingScreen({
   listeners = 0,
   needsResume = false,
   nowPlaying = null,
+  nowPlayingStatus = 'idle',
   trackLinks = null,
   onTogglePlay,
   onClose,
@@ -227,6 +228,20 @@ export function NowPlayingScreen({
                 </a>
               </div>
             )}
+          </div>
+        )}
+
+        {/* No title available: say so instead of leaving a silent gap.
+            'none' = the station answered and publishes no song titles (or
+            the title stopped being confirmed); 'loading' = still asking. */}
+        {!nowPlaying && (nowPlayingStatus === 'none' || nowPlayingStatus === 'loading') && (
+          <div className="np-song-empty">
+            <span className="np-song-label" aria-hidden="true">NOW PLAYING</span>
+            <div className="np-song-empty-text">
+              {nowPlayingStatus === 'loading'
+                ? 'Looking for a song title…'
+                : 'This station is not publishing a song title right now.'}
+            </div>
           </div>
         )}
 

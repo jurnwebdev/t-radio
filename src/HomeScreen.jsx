@@ -685,7 +685,7 @@ export default function HomeScreen() {
    * Declared before useMediaSession below: the media-session metadata
    * needs the current title, and a hook used before its declaration
    * throws a temporal dead zone error at render time. */
-  const nowPlaying = useNowPlayingTitle(isPlaying ? current : null)
+  const { nowPlaying, status: nowPlayingStatus } = useNowPlayingTitle(isPlaying ? current : null)
   const trackLinks = useMemo(() => musicLinks(nowPlaying ? nowPlaying.track : ''), [nowPlaying])
 
   /* ---------- OS media controls + lock-screen card ----------
@@ -2367,6 +2367,7 @@ export default function HomeScreen() {
           listeners={globalListeners}
           needsResume={resumeHint && !isPlaying}
           nowPlaying={nowPlaying}
+          nowPlayingStatus={nowPlayingStatus}
           trackLinks={trackLinks}
           onTogglePlay={() => {
             if (!current) startStation(EXPLORE_AFROBEATS[0])
