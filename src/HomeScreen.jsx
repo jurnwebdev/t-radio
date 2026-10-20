@@ -340,8 +340,8 @@ const EXPLORE_INTERNATIONAL = [
     country: 'France',
     city: 'Paris',
     tags: 'News, Talk',
-    url: 'http://live02.rfi.fr/rfiafrique-64.mp3',
-    url_resolved: 'http://live02.rfi.fr/rfiafrique-64.mp3',
+    url: 'https://rfiafrique64kbps.ice.infomaniak.ch/rfiafrique-64.mp3',
+    url_resolved: 'https://rfiafrique64kbps.ice.infomaniak.ch/rfiafrique-64.mp3',
   },
   {
     stationuuid: 'curated-heart',
