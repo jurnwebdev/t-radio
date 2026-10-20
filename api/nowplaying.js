@@ -75,7 +75,7 @@ function parseStreamTitle(text) {
 }
 
 /** Some stations put their own name in StreamTitle instead of a song. */
-function isStationNamePlayholder(title, icyName, stationName) {
+function isStationNamePlayholder(title, icyName, stationName, streamUrl) {
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
   const t = norm(title)
   if (!t) return false
@@ -90,6 +90,16 @@ function isStationNamePlayholder(title, icyName, stationName) {
     // "BBC World Service Online" vs "BBC Radio" — share a distinctive token.
     if (ref.length >= 3 && t.includes(ref)) return true
     if (ref.length >= 3 && ref.includes(liveStripped)) return true
+  }
+
+  // The stream title is often just the stream's own id, which shows up
+  // in the host/path of the stream URL ("Coolfmlagos969 Live" for
+  // .../coolfmlagos969). That is a station identifier, not a song.
+  const urlNorm = norm(String(streamUrl || '').replace(/^https?:\/\//, ''))
+  if (urlNorm) {
+    for (const cand of [liveStripped, t]) {
+      if (cand.length >= 5 && urlNorm.includes(cand)) return true
+    }
   }
 
   // No reference name available: a bare "... Live" with no artist is a station ID.
@@ -183,7 +193,7 @@ async function readIcyTitle(streamUrl, stationName) {
           const parsed = parseStreamTitle(text)
           if (parsed) {
             // Skip metadata that is really the station's own name, not a song.
-            if (!isStationNamePlayholder(parsed.title, icyName, stationName)) {
+            if (!isStationNamePlayholder(parsed.title, icyName, stationName, streamUrl)) {
               const { raw: _raw, ...clean } = parsed
               return { available: true, ...clean, source: 'icy' }
             }
@@ -222,7 +232,12 @@ async function readIcyTitle(streamUrl, stationName) {
 function send(res, status, body, cacheSeconds) {
   res.statusCode = status
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
-  res.setHeader('Cache-Control', `public, s-maxage=${cacheSeconds}, stale-while-revalidate=60`)
+  // s-maxage -> the CDN (and only the CDN) may reuse the body for
+  // `cacheSeconds`. max-age=0 + must-revalidate -> a browser must never
+  // replay a cached body: a stale song title is worse than an extra
+  // request. (stale-while-revalidate is deliberately omitted, it would
+  // let a cache serve an out-of-date title for a minute.)
+  res.setHeader('Cache-Control', `public, s-maxage=${cacheSeconds}, max-age=0, must-revalidate`)
   res.end(JSON.stringify(body))
 }
 
