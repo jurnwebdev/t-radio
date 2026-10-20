@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
-import { StationBrandLogo } from './StationBrandLogo'
+import { StationBrandLogo, resolveStationArt } from './StationBrandLogo'
 import { NowPlayingScreen } from './NowPlayingScreen'
 import { useSessionListener } from './useListenerCount'
 import { useNowPlayingTitle, musicLinks } from './useNowPlayingTitle'
+import { useMediaSession } from './useMediaSession'
 import { trackVisit, trackStatsPlay } from './useStatsTracker'
 import { logAppEvent } from './firebase'
 import { findStationBySlug, buildShareUrl, stationSlug } from './stationSlug'
+import { setShareOgMeta } from './shareOg'
 import './HomeScreen.css'
 
 import afrobeatImg from './assets/genres/afrobeat.svg'
@@ -25,6 +27,7 @@ const LAST_KEY = 'tradio.last'
 const LAST_STATION_KEY = 'tradio.last.station'
 const FAVONLY_KEY = 'tradio.home.favonly'
 const THEME_KEY = 'tradio.theme'
+const LOWBAND_DEFAULT_KEY = 'tradio.lowband.default'
 
 /* ---------- Live edge ----------
  * Radio is live, but a connection can quietly fall behind the broadcast:
@@ -48,6 +51,47 @@ const REJOIN_COOLDOWN_MS = 20000
  * failure - the new source takes over. */
 function isAbortError(err) {
   return !!err && err.name === 'AbortError'
+}
+
+/* ---------- Low-bandwidth / stream health ----------
+ * Some stations publish an alternate, lower-bitrate stream on the same
+ * host (e.g. an Icecast port-8000 "low" mount). When the user is on a
+ * weak connection the default stream will stall; switching to the
+ * low-band URL usually saves it. This is opt-in so we never silently
+ * downgrade a good connection. */
+function getLowBandDefault() {
+  try {
+    return localStorage.getItem(LOWBAND_DEFAULT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/* Best-effort guess of a lower-bitrate variant for a stream URL.
+ * Returns a *different* URL to fall back to, or null when none can be
+ * derived (in which case low-band mode just notifies instead of
+ * switching). */
+function lowBandUrlFor(streamUrl) {
+  if (!streamUrl) return null
+  try {
+    const u = new URL(streamUrl)
+    let alt = null
+    if (u.pathname.includes('.mp3')) {
+      // Icecast "listen" hosts commonly ship /low.mp3 and /high.mp3
+      const low = u.pathname.replace(/\/high\.(mp3|aac)$/, '/low.$1')
+      if (low !== u.pathname) {
+        alt = new URL(low, u.origin).toString()
+      }
+    }
+    // Append a mount hint some hosts honor (last resort).
+    if (!alt) {
+      const probe = `${u.toString().replace(/\/+$/, '')}/low`
+      if (probe !== u.toString().replace(/\/+$/, '')) alt = probe
+    }
+    return alt
+  } catch {
+    return null
+  }
 }
 
 function getInitialTheme() {
@@ -607,6 +651,63 @@ export default function HomeScreen() {
   // True once the initial station list finished loading (or failed).
   const [stationsReady, setStationsReady] = useState(false)
 
+  /* ---------- Low-bandwidth mode ----------
+   * Opt-in toggle that prefers a lower-bitrate variant of the stream and
+   * shows a notice when the connection is struggling. Persisted so it
+   * survives a reload. */
+  const [lowBand, setLowBand] = useState(getLowBandDefault)
+  const [streamNotice, setStreamNotice] = useState('')
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOWBAND_DEFAULT_KEY, lowBand ? '1' : '0')
+    } catch {}
+  }, [lowBand])
+
+  /* Auto-detect a weak connection (metered / save-data) once on mount and
+   * suggest low-band mode. This is a *suggestion* — it never downgrades a
+   * good connection on its own. */
+  useEffect(() => {
+    const conn = navigator.connection
+    if (!conn) return
+    if (conn.saveData) {
+      setLowBand(true)
+      setStreamNotice('Low-bandwidth mode: your browser is in data-saving mode')
+    }
+    const onWeak = () => {
+      if ((conn.effectiveType || '').includes('2g')) {
+        setStreamNotice('Slow connection detected — switch to low-bandwidth mode')
+      }
+    }
+    conn.addEventListener('change', onWeak)
+    return () => conn.removeEventListener('change', onWeak)
+  }, [])
+
+  /* ---------- Live song title (ICY metadata via /api/nowplaying) ----------
+   * Declared before useMediaSession below: the media-session metadata
+   * needs the current title, and a hook used before its declaration
+   * throws a temporal dead zone error at render time. */
+  const nowPlaying = useNowPlayingTitle(isPlaying ? current : null)
+  const trackLinks = useMemo(() => musicLinks(nowPlaying ? nowPlaying.track : ''), [nowPlaying])
+
+  /* ---------- OS media controls + lock-screen card ----------
+   * The hook reads handlers via a ref (see useMediaSession), so this can
+   * safely be wired after all the playback callbacks are defined below.
+   * The ref is filled in at the end of the render body. */
+  const mediaHandlersRef = useRef({ onTogglePlay: undefined, onPrevChannel: undefined, onNextChannel: undefined })
+  const { acquireWakeLock } = useMediaSession({
+    station: current,
+    isPlaying,
+    nowPlaying,
+    handlersRef: mediaHandlersRef,
+  })
+
+  /* Keep the screen lit while actively playing (so the radio keeps
+   * going in the background / on the lock screen). */
+  useEffect(() => {
+    acquireWakeLock(isPlaying && current)
+  }, [isPlaying, current, acquireWakeLock])
+
   useEffect(() => { currentRef.current = current }, [current])
 
   /* ---------- Firebase listener tracking ----------
@@ -616,33 +717,10 @@ export default function HomeScreen() {
   const { count: globalListeners, trackPlay, trackStop } = useSessionListener()
   const lastTrackedStationRef = useRef(null)
 
-  /* ---------- Live song title (ICY metadata via /api/nowplaying) ---------- */
-  const nowPlaying = useNowPlayingTitle(isPlaying ? current : null)
-  const trackLinks = useMemo(() => musicLinks(nowPlaying ? nowPlaying.track : ''), [nowPlaying])
-
-  /* Mirror the track onto the lock screen / OS media controls (PWA bonus). */
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
-    try {
-      if (!current) {
-        navigator.mediaSession.metadata = null
-        return
-      }
-      const subtitle = nowPlaying ? nowPlaying.track : current.name
-      navigator.mediaSession.metadata = new window.MediaMetadata({
-        title: nowPlaying ? nowPlaying.title || nowPlaying.track : current.name,
-        artist: nowPlaying && nowPlaying.artist ? nowPlaying.artist : current.name,
-        album: current.name,
-      })
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
-      // Keep the station name visible when there is no song metadata yet.
-      if (!nowPlaying && subtitle) {
-        navigator.mediaSession.metadata.title = current.name
-      }
-    } catch {
-      // Media Session is best-effort only.
-    }
-  }, [current, nowPlaying, isPlaying])
+  /* Media-session metadata, artwork, and playback state are handled by the
+   * useMediaSession hook (see the call above). The hook owns all
+   * navigator.mediaSession writes so the action handlers and the lock-screen
+   * card stay in sync. */
 
   useEffect(() => {
     if (isPlaying && current) {
@@ -703,7 +781,24 @@ export default function HomeScreen() {
   const [genreSearch, setGenreSearch] = useState('')
 
   /* ---------- Explore Screen State ---------- */
-  const [explorePill, setExplorePill] = useState('All')
+  /* Read a ?tag= deep link so a shared genre link opens Explore pre-filtered
+   * to that pill. "afrobeat" maps to the "Afrobeats" pill, etc. */
+  const explorePillFromUrl = (() => {
+    try {
+      const g = new URLSearchParams(window.location.search).get('tag')
+      if (!g) return 'All'
+      const pills = {
+        afrobeat: 'Afrobeats', afrobeats: 'Afrobeats',
+        hiphop: 'Music', 'hip hop': 'Music',
+        gospel: 'Gospel', news: 'News', talk: 'Talk',
+        sports: 'Sports', sport: 'Sports', music: 'Music',
+      }
+      return pills[g.toLowerCase()] || 'All'
+    } catch {
+      return 'All'
+    }
+  })()
+  const [explorePill, setExplorePill] = useState(explorePillFromUrl)
   const [showExploreSearch, setShowExploreSearch] = useState(false)
   const [exploreSearch, setExploreSearch] = useState('')
   const [showAllAfrobeats, setShowAllAfrobeats] = useState(false)
@@ -770,14 +865,35 @@ export default function HomeScreen() {
     }
   }, [])
 
+  /* A ?tag= deep link should land on Explore with that pill active. */
+  useEffect(() => {
+    if (explorePillFromUrl !== 'All') {
+      setActiveTab('explore')
+      setSelectedGenre(null)
+      setFavOnly(false)
+      loadStations(explorePillFromUrl === 'Afrobeats' ? 'afrobeat'
+        : explorePillFromUrl === 'Sports' ? 'sport'
+        : explorePillFromUrl.toLowerCase())
+    }
+  }, [explorePillFromUrl, loadStations])
+
   useEffect(() => {
     loadStations()
   }, [loadStations])
 
-  /* ---------- Stream Candidates & Player Logic ---------- */
+  /* ---------- Stream Candidates & Player Logic ----------
+   * When low-bandwidth mode is on, prefer a lower-bitrate variant of the
+   * stream so a weak connection doesn't stall. The normal URLs are kept
+   * as fallback so switching off low-band just reverts. */
   const streamCandidates = useCallback((st) => {
-    return [...new Set([st.url_resolved, st.url].filter(Boolean))]
-  }, [])
+    const urls = [st.url_resolved, st.url].filter(Boolean)
+    if (lowBand) {
+      // Put a guessed low-bitrate variant first when one is derivable.
+      const low = lowBandUrlFor(urls[0])
+      if (low && !urls.includes(low)) return [low, ...new Set(urls)]
+    }
+    return [...new Set(urls)]
+  }, [lowBand])
 
   const playCandidate = useCallback(() => {
     const a = audioRef.current
@@ -1254,6 +1370,24 @@ export default function HomeScreen() {
     return buildShareUrl(st, channelList)
   }, [current, channelList])
 
+  /* ---------- Share OG card ----------
+   * Update the og:title/desc/image so a shared link previews the
+   * specific station. This has to live after shareUrl: the effect's
+   * dependency array is evaluated during render, so it can only read
+   * values that are already declared. */
+  useEffect(() => {
+    const st = current || EXPLORE_AFROBEATS[0]
+    if (!st) return
+    try {
+      setShareOgMeta({
+        title: `${st.name} · T-Radio`,
+        description: `Listen to ${st.name} live — powered by T-Radio`,
+        image: resolveStationArt(st),
+        url: shareUrl,
+      })
+    } catch { /* best effort */ }
+  }, [current, shareUrl])
+
   /* ---------- Deep link: /?station=<slug> ----------
    * Opens the shared station straight into Now Playing. The station is
    * looked up locally first (curated + already loaded stations) and,
@@ -1322,6 +1456,15 @@ export default function HomeScreen() {
       setIsNavigating(false)
     }, 600)
   }, [current, channelList, startStation])
+
+  /* Fill in the media-session handlers now that togglePlay / navigateChannel
+   * exist. The ref is read at action-handler time, so the OS media widget
+   * always calls the freshest functions. */
+  mediaHandlersRef.current = {
+    onTogglePlay: togglePlay,
+    onPrevChannel: () => navigateChannel('prev'),
+    onNextChannel: () => navigateChannel('next'),
+  }
 
   /* ---------- Favorite Stations List ---------- */
   const favoriteStations = useMemo(() => {
@@ -1465,17 +1608,11 @@ export default function HomeScreen() {
       ) : (
         <header className="hs-header">
           <div className="hs-brand">
-            <div className="hs-brand-wave" aria-hidden="true">
-              <span style={{ height: '7px' }} />
-              <span style={{ height: '16px' }} />
-              <span style={{ height: '22px' }} />
-              <span style={{ height: '13px' }} />
-              <span style={{ height: '6px' }} />
-            </div>
-            <h1 className="hs-brand-title">
-              <span className="hs-brand-t">T-</span>
-              <span className="hs-brand-radio">RADIO</span>
-            </h1>
+            <img
+              src="/tradio-logo.webp"
+              alt="T-Radio"
+              className="hs-brand-wordmark"
+            />
           </div>
 
           <div className="hs-actions">
@@ -1688,7 +1825,7 @@ export default function HomeScreen() {
                 </button>
               </div>
               <div className="hs-more-row">
-                <span>Reset Cache & Reload</span>
+                <span>Reset Cache &amp; Reload</span>
                 <button
                   className="hs-more-btn"
                   onClick={() => {
@@ -1698,6 +1835,39 @@ export default function HomeScreen() {
                   }}
                 >
                   Reload
+                </button>
+              </div>
+            </div>
+
+            <div className="hs-more-card">
+              <h3 className="hs-more-title">Connection</h3>
+              <div className="hs-more-row">
+                <span>Low-bandwidth mode</span>
+                <button
+                  className={`hs-more-btn${lowBand ? ' active' : ''}`}
+                  onClick={() => {
+                    setLowBand((v) => !v)
+                    if (!lowBand) {
+                      setStreamNotice('')
+                      showLiveNotice('Switching to low-bitrate stream…')
+                    }
+                  }}
+                  aria-pressed={lowBand}
+                >
+                  {lowBand ? 'On' : 'Off'}
+                </button>
+              </div>
+              <div className="hs-more-row">
+                <span>Wake screen while playing</span>
+                <button
+                  className={`hs-more-btn${(typeof navigator !== 'undefined' && 'wakeLock' in navigator) ? ' active' : ''}`}
+                  onClick={async () => {
+                    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+                      await navigator.wakeLock.request('screen').catch(() => {})
+                    }
+                  }}
+                >
+                  {typeof navigator !== 'undefined' && 'wakeLock' in navigator ? 'Available' : 'Unsupported'}
                 </button>
               </div>
             </div>
@@ -2025,6 +2195,37 @@ export default function HomeScreen() {
         )}
       </main>
 
+      {/* ================= STREAM HEALTH NOTICE ================= */}
+      {streamNotice && current && (
+        <div className="hs-stream-notice" role="status">
+          <svg className="hs-stream-notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+          </svg>
+          <span className="hs-stream-notice-text">{streamNotice}</span>
+          <button
+            className="hs-stream-notice-action"
+            onClick={(e) => {
+              e.stopPropagation()
+              setLowBand(true)
+              setStreamNotice('')
+            }}
+          >
+            {lowBand ? 'On' : 'Enable'}
+          </button>
+          <button
+            className="hs-stream-notice-action"
+            style={{ opacity: 0.6 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              setStreamNotice('')
+            }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* ================= NOW PLAYING MINI-PLAYER ================= */}
       {current && (
         <div
@@ -2192,7 +2393,8 @@ export default function HomeScreen() {
           onPrevChannel={() => navigateChannel('prev')}
           onNextChannel={() => navigateChannel('next')}
           isLoading={isNavigating}
-          notice={liveNotice}
+          notice={liveNotice || streamNotice}
+          lowBand={lowBand}
         />
       )}
 
