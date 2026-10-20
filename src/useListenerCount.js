@@ -1,10 +1,16 @@
 import { useEffect, useRef, useCallback } from 'react'
-import { ref, onValue, increment } from 'firebase/database'
+import { ref, onValue, increment, update } from 'firebase/database'
 import { db, firebaseReady } from './firebase'
 
 function bumpCounter(path, delta) {
-  if (!firebaseReady) return
-  increment(ref(db, path), delta).catch(() => {})
+  if (!firebaseReady || !db) return
+  try {
+    // In Firebase v13, increment() returns a server-value marker
+    // (like {'.sv':{increment:1}}). The actual write goes through update().
+    update(ref(db, path), increment(delta)).catch(() => {})
+  } catch {
+    // never let tracking break the app
+  }
 }
 
 /* ----------------------------------------------------------------
