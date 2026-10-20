@@ -5,6 +5,7 @@ import { useSessionListener } from './useListenerCount'
 import { useNowPlayingTitle, musicLinks } from './useNowPlayingTitle'
 import { trackVisit, trackStatsPlay } from './useStatsTracker'
 import { logAppEvent } from './firebase'
+import { findStationBySlug, buildShareUrl, stationSlug } from './stationSlug'
 import './HomeScreen.css'
 
 import afrobeatImg from './assets/genres/afrobeat.svg'
@@ -25,6 +26,30 @@ const LAST_STATION_KEY = 'tradio.last.station'
 const FAVONLY_KEY = 'tradio.home.favonly'
 const THEME_KEY = 'tradio.theme'
 
+/* ---------- Live edge ----------
+ * Radio is live, but a connection can quietly fall behind the broadcast:
+ * a paused stream keeps serving audio that is no longer live, a stalled
+ * connection freezes at whatever point it reached, and a relay may hand
+ * out a backlog of old audio on connect. Chrome never skips ahead on its
+ * own, so the cure is a fresh connection - a new connection always starts
+ * at the live edge.
+ *   STALE_RESUME_MS    - paused longer than this -> reconnect on resume
+ *   LIVE_EDGE_LIMIT_SEC - more audio buffered ahead of the play head than
+ *                         this means we trail the broadcast -> reconnect
+ *   LIVE_EDGE_STALL_MS  - stalled this long -> reconnect
+ */
+const STALE_RESUME_MS = 8000
+const LIVE_EDGE_LIMIT_SEC = 8
+const LIVE_EDGE_STALL_MS = 8000
+const REJOIN_COOLDOWN_MS = 20000
+
+/* A play() promise rejects with AbortError when the source is swapped
+ * (our live-edge re-open does exactly that). That is expected, not a
+ * failure - the new source takes over. */
+function isAbortError(err) {
+  return !!err && err.name === 'AbortError'
+}
+
 function getInitialTheme() {
   try {
     const saved = localStorage.getItem(THEME_KEY)
@@ -42,6 +67,48 @@ function loadSavedStation() {
       if (st && st.stationuuid) return st
     }
   } catch {}
+  return null
+}
+
+/* ---------- Deep link support: /?station=<slug> ----------
+ * The slug is a friendly, human-readable id for a station
+ * ("cool-fm-96-9"). Opening such a link loads that station and opens
+ * the Now Playing screen. */
+function readDeepLinkSlug() {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('station')
+    return raw ? raw.trim().toLowerCase() : ''
+  } catch {}
+  return ''
+}
+
+/**
+ * Look a station up in the Radio Browser API by name.
+ * Used when a shared link points at a station that is not in the
+ * locally known list (e.g. a station from another country).
+ */
+async function searchStationBySlug(slug) {
+  const words = slug.replace(/-/g, ' ').trim()
+  // "cool fm 96 9" also tries "cool fm" — the API matches on the name
+  // text, and the slug comparison below keeps it to the right station.
+  const withoutNumbers = slug.replace(/-\d+(?:-\d+)*$/, '').replace(/-/g, ' ').trim()
+  const queries = [words]
+  if (withoutNumbers && withoutNumbers !== words) queries.push(withoutNumbers)
+
+  for (const q of queries) {
+    try {
+      const res = await fetch(
+        `${API}/json/stations/search?name=${encodeURIComponent(q)}&limit=25&hidebroken=true&order=clickcount&reverse=true`,
+        { headers: HEADERS },
+      )
+      if (!res.ok) continue
+      const data = await res.json()
+      const hit = (data || []).find((st) => stationSlug(st) === slug)
+      if (hit) return hit
+    } catch {
+      /* try the next query */
+    }
+  }
   return null
 }
 
@@ -512,6 +579,33 @@ export default function HomeScreen() {
   const recoveredRef = useRef(false)
   // Throttle resume attempts when both visibilitychange and focus fire.
   const lastResumeAttemptRef = useRef(0)
+  /* ---------- Live edge bookkeeping ---------- */
+  // When playback was paused, so a resume can tell live from stale.
+  const pausedAtRef = useRef(0)
+  // Last time we re-opened the connection, to avoid a reconnect loop.
+  const rejoinCooldownRef = useRef(0)
+  // How many live-edge corrections we already made this session.
+  const rejoinCountRef = useRef(0)
+  // True while we deliberately swap the source (live-edge re-open), so the
+  // resulting pause event is not treated as the user hitting pause.
+  const swappingRef = useRef(false)
+  // Timer that fires when the stream stalls for too long.
+  const stallTimerRef = useRef(null)
+  // Timer for the one-shot re-open right after a stream starts.
+  const startRejoinTimerRef = useRef(null)
+  // Timer that clears the "rejoining live" notice.
+  const noticeTimerRef = useRef(null)
+  // Short notice shown while we re-open the connection.
+  const [liveNotice, setLiveNotice] = useState('')
+  // Deep link: /?station=<slug> — the station a shared link points at.
+  const [deepLinkSlug] = useState(readDeepLinkSlug)
+  const [deepLinkMissing, setDeepLinkMissing] = useState(false)
+  // Guard so a deep-linked station is only applied once.
+  const deepLinkDoneRef = useRef(false)
+  // Guard so the name lookup against the Radio Browser API runs once.
+  const deepLinkSearchRef = useRef(false)
+  // True once the initial station list finished loading (or failed).
+  const [stationsReady, setStationsReady] = useState(false)
 
   useEffect(() => { currentRef.current = current }, [current])
 
@@ -668,9 +762,11 @@ export default function HomeScreen() {
       }
       setStations([...seen.values()])
       setLoading(false)
+      setStationsReady(true)
     } catch {
       // Keep curated list on error
       setLoading(false)
+      setStationsReady(true)
     }
   }, [])
 
@@ -705,6 +801,7 @@ export default function HomeScreen() {
         setIsPaused(false)
         setError(null)
       }).catch((err) => {
+        if (isAbortError(err)) return
         if (err && err.name === 'NotAllowedError') {
           setIsPlaying(false)
           setResumeHint(true)
@@ -754,6 +851,7 @@ export default function HomeScreen() {
           recoveredRef.current = false
         })
         .catch((err) => {
+          if (isAbortError(err)) return
           if (err && err.name === 'NotAllowedError') {
             setIsPlaying(false)
             setResumeHint(true)
@@ -772,6 +870,53 @@ export default function HomeScreen() {
     }
   }, [streamCandidates])
 
+  /* ---------- Live edge ----------
+   * Re-open the stream connection so playback sits at the live edge
+   * instead of trailing the broadcast. A fresh connection starts at the
+   * live edge, so this is the only way to catch up. The cooldown keeps
+   * a flaky network from turning into a reconnect loop. */
+  const showLiveNotice = useCallback((msg) => {
+    setLiveNotice(msg)
+    clearTimeout(noticeTimerRef.current)
+    noticeTimerRef.current = setTimeout(() => setLiveNotice(''), 2600)
+  }, [])
+
+  const rejoinLive = useCallback((reason) => {
+    const st = currentRef.current
+    if (!st || !wantsPlayRef.current) return
+    const now = Date.now()
+    if (now - rejoinCooldownRef.current < REJOIN_COOLDOWN_MS) return
+    // Safety valve: a stream that keeps going stale should not turn into
+    // an endless reconnect loop.
+    if (reason !== 'start') {
+      if (rejoinCountRef.current >= 5) return
+      rejoinCountRef.current += 1
+    }
+    rejoinCooldownRef.current = now
+    if (reason !== 'start') {
+      showLiveNotice(reason === 'stall' ? 'Reconnecting…' : 'Rejoining live…')
+    }
+    swappingRef.current = true
+    resumeStream(st, { reload: true })
+  }, [resumeStream, showLiveNotice])
+
+  /* Re-open the connection a moment after a stream starts.
+   * A relay can hand the very first client a backlog of older audio, so
+   * the stream we land on would trail the broadcast. A fresh connection
+   * starts on the live edge - and because we do it before the first
+   * audio arrives, the handover is inaudible. */
+  const scheduleStartRejoin = useCallback((st) => {
+    clearTimeout(startRejoinTimerRef.current)
+    startRejoinTimerRef.current = setTimeout(() => {
+      startRejoinTimerRef.current = null
+      const a = audioRef.current
+      if (!a || a.error) return
+      if (currentRef.current !== st || !wantsPlayRef.current) return
+      rejoinCooldownRef.current = 0
+      rejoinLive('start')
+    }, 400)
+  }, [rejoinLive])
+
   const startStation = useCallback((st) => {
     const a = audioRef.current
     if (!a) return
@@ -785,6 +930,11 @@ export default function HomeScreen() {
     setCurrent(st)
     currentRef.current = st
     wantsPlayRef.current = true
+    // A fresh start is a user action - allow an immediate live-edge
+    // correction if the stream turns out to be behind.
+    rejoinCooldownRef.current = 0
+    rejoinCountRef.current = 0
+    pausedAtRef.current = 0
     setResumeHint(false)
     setIsPaused(false)
     setError(null)
@@ -796,6 +946,8 @@ export default function HomeScreen() {
     // Synchronously set src within the user gesture context
     a.src = first
     a.load()
+    // Re-open the connection shortly after, so we start on the live edge.
+    scheduleStartRejoin(st)
     const playPromise = a.play()
     if (playPromise !== undefined) {
       playPromise
@@ -806,6 +958,7 @@ export default function HomeScreen() {
           setError(null)
         })
         .catch((err) => {
+          if (isAbortError(err)) return
           if (err && err.name === 'NotAllowedError') {
             setIsPlaying(false)
             setResumeHint(true)
@@ -821,7 +974,7 @@ export default function HomeScreen() {
           }
         })
     }
-  }, [streamCandidates])
+  }, [streamCandidates, scheduleStartRejoin])
 
   /* ---------- Popular list ---------- */
   const popularList = useMemo(() => {
@@ -844,6 +997,7 @@ export default function HomeScreen() {
     }
     if (!a.paused && isPlaying) {
       wantsPlayRef.current = false
+      pausedAtRef.current = Date.now()
       setResumeHint(false)
       a.pause()
       setIsPaused(true)
@@ -854,7 +1008,13 @@ export default function HomeScreen() {
     setResumeHint(false)
     setIsPaused(false)
     setError(null)
-    if (!a.src || a.error) {
+    // How long the stream sat paused. A long pause leaves the connection
+    // trailing the broadcast, so resume by re-opening it.
+    const pausedFor = pausedAtRef.current ? Date.now() - pausedAtRef.current : 0
+    pausedAtRef.current = 0
+    rejoinCooldownRef.current = 0
+    rejoinCountRef.current = 0
+    if (!a.src || a.error || pausedFor > STALE_RESUME_MS) {
       resumeStream(st, { reload: true })
       return
     }
@@ -867,6 +1027,7 @@ export default function HomeScreen() {
           setResumeHint(false)
         })
         .catch((err) => {
+          if (isAbortError(err)) return
           if (err && err.name === 'NotAllowedError') {
             setIsPlaying(false)
             setResumeHint(true)
@@ -882,32 +1043,68 @@ export default function HomeScreen() {
   useEffect(() => {
     const a = audioRef.current
     if (!a) return
-    const onPlaying = () => { setIsPlaying(true); setIsPaused(false); setResumeHint(false); setError(null) }
-    const onPause = () => { setIsPlaying(false) }
+    const onPlaying = () => {
+      clearTimeout(stallTimerRef.current)
+      swappingRef.current = false
+      setIsPlaying(true); setIsPaused(false); setResumeHint(false); setError(null)
+    }
+    const onPause = () => {
+      // A deliberate source swap pauses the element - that is not the user
+      // pressing pause, so keep the player state as it is.
+      if (swappingRef.current) return
+      setIsPlaying(false)
+    }
     const onError = () => { if (candidatesRef.current.length > 0) playCandidateRef.current() }
     const onEnded = () => {
       if (wantsPlayRef.current) resumeStream(currentRef.current, { reload: true })
+    }
+    // A stream that stops delivering audio freezes the broadcast where it
+    // was. Re-open the connection once it has been silent for a while.
+    const onWaiting = () => {
+      clearTimeout(stallTimerRef.current)
+      stallTimerRef.current = setTimeout(() => rejoinLive('stall'), LIVE_EDGE_STALL_MS)
     }
     a.addEventListener('playing', onPlaying)
     a.addEventListener('pause', onPause)
     a.addEventListener('error', onError)
     a.addEventListener('ended', onEnded)
+    a.addEventListener('waiting', onWaiting)
+    a.addEventListener('stalled', onWaiting)
     return () => {
+      clearTimeout(stallTimerRef.current)
       a.removeEventListener('playing', onPlaying)
       a.removeEventListener('pause', onPause)
       a.removeEventListener('error', onError)
       a.removeEventListener('ended', onEnded)
+      a.removeEventListener('waiting', onWaiting)
+      a.removeEventListener('stalled', onWaiting)
     }
-  }, [resumeStream])
+  }, [resumeStream, rejoinLive])
+
+  /* ---------- Live edge watchdog ----------
+   * Chrome keeps roughly two seconds of audio for a healthy live stream,
+   * so a large lead between the buffered audio and the play head means we
+   * are trailing the broadcast. Re-opening the connection puts us back on
+   * the live edge. */
+  useEffect(() => {
+    if (!isPlaying) return undefined
+    const id = setInterval(() => {
+      const a = audioRef.current
+      if (!a || a.paused) return
+      const b = a.buffered
+      if (!b.length) return
+      const ahead = b.end(b.length - 1) - a.currentTime
+      if (ahead > LIVE_EDGE_LIMIT_SEC) rejoinLive()
+    }, 3000)
+    return () => clearInterval(id)
+  }, [isPlaying, rejoinLive])
 
   /* ---------- Restore last station on launch ----------
    * The station object is persisted (not just the id) so it can render
    * before the Radio Browser API responds. We immediately try to play;
    * if iOS blocks autoplay, the station stays loaded and we show a
    * one-tap "resume" hint instead of losing the selection. */
-  useEffect(() => {
-    if (restoredRef.current) return
-    restoredRef.current = true
+  const restoreLastStation = useCallback(() => {
     const saved = loadSavedStation()
     const a = audioRef.current
     if (!saved || !a) return
@@ -920,6 +1117,7 @@ export default function HomeScreen() {
     wantsPlayRef.current = true
     a.src = first
     a.load()
+    scheduleStartRejoin(saved)
     const playPromise = a.play()
     if (playPromise !== undefined) {
       playPromise
@@ -930,6 +1128,7 @@ export default function HomeScreen() {
           setError(null)
         })
         .catch((err) => {
+          if (isAbortError(err)) return
           if (err && err.name === 'NotAllowedError') {
             setIsPlaying(false)
             setResumeHint(true)
@@ -939,9 +1138,15 @@ export default function HomeScreen() {
           else setResumeHint(true)
         })
     }
-    // Intentionally run once on mount; volume is synced by its own effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [streamCandidates, scheduleStartRejoin])
+
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    // A shared link (?station=...) wins over the last-played station.
+    if (deepLinkSlug) return
+    restoreLastStation()
+  }, [deepLinkSlug, restoreLastStation])
 
   /* ---------- Auto-resume after OS interruptions ----------
    * iOS pauses web audio when a call, lock screen, or another app
@@ -1040,6 +1245,63 @@ export default function HomeScreen() {
   /* Ordered channel list used for Prev/Next navigation */
   const channelList = useMemo(() => [...allKnownStations.values()], [allKnownStations])
 
+  /* ---------- Share link for the station being played ----------
+   * A shared link points at the station, not at the app home:
+   *   https://t-radio.app/?station=cool-fm-96-9 */
+  const shareUrl = useMemo(() => {
+    const st = current || EXPLORE_AFROBEATS[0]
+    if (!st) return ''
+    return buildShareUrl(st, channelList)
+  }, [current, channelList])
+
+  /* ---------- Deep link: /?station=<slug> ----------
+   * Opens the shared station straight into Now Playing. The station is
+   * looked up locally first (curated + already loaded stations) and,
+   * if that misses, by name against the Radio Browser API. */
+  useEffect(() => {
+    if (!deepLinkSlug || deepLinkDoneRef.current) return
+
+    const known = [...allKnownStations.values()]
+    const found = findStationBySlug(deepLinkSlug, known)
+    if (found) {
+      deepLinkDoneRef.current = true
+      setDeepLinkMissing(false)
+      setShowNowPlaying(true)
+      startStation(found)
+      return
+    }
+
+    // Wait for the station list before asking the API by name, so the
+    // common case never pays for a second request.
+    if (!stationsReady) return
+    if (deepLinkSearchRef.current) return
+    deepLinkSearchRef.current = true
+
+    let cancelled = false
+    searchStationBySlug(deepLinkSlug)
+      .then((st) => {
+        if (cancelled) return
+        if (st) {
+          deepLinkDoneRef.current = true
+          setDeepLinkMissing(false)
+          setShowNowPlaying(true)
+          startStation(st)
+        } else {
+          setDeepLinkMissing(true)
+          restoreLastStation()
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setDeepLinkMissing(true)
+        restoreLastStation()
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [deepLinkSlug, allKnownStations, stationsReady, startStation, restoreLastStation])
+
   /**
    * Navigate to the previous/next station in the channel list,
    * wrapping around at the ends. Shows a brief loading state.
@@ -1126,6 +1388,20 @@ export default function HomeScreen() {
 
   return (
     <div className="hs-screen">
+      {/* Shared link points at a station we could not find */}
+      {deepLinkMissing && (
+        <div className="hs-deeplink-note" role="status">
+          <span>We couldn&rsquo;t find that station. It may have moved.</span>
+          <button
+            className="hs-deeplink-dismiss"
+            onClick={() => setDeepLinkMissing(false)}
+            aria-label="Dismiss"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* ================= TOP HEADER ================= */}
       {selectedGenre ? null : activeTab === 'explore' ? (
         <header className="hs-explore-header">
@@ -1400,17 +1676,6 @@ export default function HomeScreen() {
               <div className="hs-more-row">
                 <span className="hs-info-key">Active Listeners</span>
                 <span className="hs-info-val">{globalListeners} now</span>
-              </div>
-              <div className="hs-more-row">
-                <span className="hs-info-key">Analytics</span>
-                <button
-                  className="hs-more-btn"
-                  onClick={() => {
-                    window.location.hash = '/admin'
-                  }}
-                >
-                  Open dashboard
-                </button>
               </div>
             </div>
 
@@ -1906,6 +2171,7 @@ export default function HomeScreen() {
       {showNowPlaying && (
         <NowPlayingScreen
           station={current || EXPLORE_AFROBEATS[0]}
+          shareUrl={shareUrl}
           isPlaying={isPlaying}
           listeners={globalListeners}
           needsResume={resumeHint && !isPlaying}
@@ -1926,6 +2192,7 @@ export default function HomeScreen() {
           onPrevChannel={() => navigateChannel('prev')}
           onNextChannel={() => navigateChannel('next')}
           isLoading={isNavigating}
+          notice={liveNotice}
         />
       )}
 
