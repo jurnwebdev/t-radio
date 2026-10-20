@@ -1,4 +1,4 @@
-import { ref, runTransaction, increment } from 'firebase/database'
+import { ref, runTransaction } from 'firebase/database'
 import { db, firebaseReady } from './firebase'
 
 /* ----------------------------------------------------------------
@@ -34,7 +34,6 @@ function isReady() {
 
 const lastPlayTs = new Map() // stationId -> epoch ms (30s debounce)
 let visitorRegistered = false // this page-load only
-let flushedDay = '' // UTC day whose daily playsTotal this tab has already bumped
 
 export function getVisitorId() {
   try {
@@ -56,11 +55,28 @@ export function utcDay() {
   return new Date().toISOString().slice(0, 10)
 }
 
-/** Safe increment of a counter, 0 on failure (RTDB absent or rules deny). */
+/**
+ * Safe increment of a counter. Returns the delta actually applied (0 on
+ * failure).
+ *
+ * Uses a transaction rather than `increment()`: `increment()` from
+ * firebase/database is a *server-value sentinel* that has to be handed to
+ * set()/update(). Calling `await increment(ref, delta)` does not write
+ * anything — it just resolves to the sentinel — which is why every counter
+ * this file wrote stayed empty while the transactions below (stationMeta,
+ * visitorIds) worked.
+ */
 async function bump(path, delta) {
   if (!isReady()) return 0
   try {
-    await increment(ref(db, `${STATS_ROOT}/${path}`), delta)
+    const result = await runTransaction(ref(db, `${STATS_ROOT}/${path}`), (current) => {
+      const value = typeof current === 'number' && Number.isFinite(current) ? current : 0
+      return value + delta
+    })
+    if (result && !result.committed) {
+      console.warn(`[T-Radio] stats bump rejected ${path}`)
+      return 0
+    }
     return delta
   } catch (err) {
     console.warn(`[T-Radio] stats bump failed ${path}:`, err.message)
@@ -124,7 +140,6 @@ export async function trackStatsPlay(st) {
   lastPlayTs.set(key, now)
 
   const day = utcDay()
-  const firstOfDay = flushedDay !== day
 
   // stationMeta: write only when absent or when details improved
   try {
@@ -146,11 +161,10 @@ export async function trackStatsPlay(st) {
 
   await bump('playsTotal', 1)
   await bump(`plays/${key}`, 1)
-  if (firstOfDay) {
-    // First play of this UTC day in this tab → bump the daily total once.
-    await bump(`daily/${day}/playsTotal`, 1)
-    flushedDay = day
-  }
+  // The daily total has to move with the per-station daily counter below,
+  // otherwise the trend chart (daily/playsTotal) drifts away from the sum
+  // of the per-station numbers.
+  await bump(`daily/${day}/playsTotal`, 1)
   await bump(`daily/${day}/plays/${key}`, 1)
 }
 

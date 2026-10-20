@@ -23,13 +23,44 @@ const tabSessionId =
     ? crypto.randomUUID()
     : `tab_${Math.random().toString(36).slice(2)}_${Date.now()}`
 
+/**
+ * Presence heartbeat. onDisconnect handles a clean tab close, but mobile
+ * browsers get killed without closing the socket, so entries can survive
+ * on the server. Refreshing updatedAt while playing lets readers expire
+ * anything that stopped heartbeating (see PRESENCE_STALE_MS).
+ */
+export const HEARTBEAT_MS = 60_000
+
 let currentStationId = null
 let isTrackingActive = false
 let stopTimer = null
+let heartbeatTimer = null
 
 function getSessionRef() {
   if (!firebaseReady || !db) return null
   return ref(db, `listeners/active/${tabSessionId}`)
+}
+
+/** Refresh this tab's presence timestamp. */
+function touchPresence() {
+  const sessionRef = getSessionRef()
+  if (!sessionRef || !isTrackingActive || !currentStationId) return
+  set(sessionRef, {
+    stationId: currentStationId,
+    updatedAt: Date.now(),
+  }).catch(() => {})
+}
+
+function stopHeartbeat() {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer)
+    heartbeatTimer = null
+  }
+}
+
+function startHeartbeat() {
+  stopHeartbeat()
+  heartbeatTimer = setInterval(touchPresence, HEARTBEAT_MS)
 }
 
 /**
@@ -94,6 +125,7 @@ export function useSessionListener() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       unsubActive()
       unsubConnected()
+      stopHeartbeat()
       if (stopTimer) {
         clearTimeout(stopTimer)
         stopTimer = null
@@ -142,6 +174,8 @@ export function useSessionListener() {
       .catch((err) => {
         console.error('[T-Radio] ✗ onDisconnect setup failed:', err)
       })
+
+    startHeartbeat()
   }, [])
 
   /**
@@ -158,6 +192,7 @@ export function useSessionListener() {
     stopTimer = setTimeout(() => {
       isTrackingActive = false
       currentStationId = null
+      stopHeartbeat()
 
       const sessionRef = getSessionRef()
       if (!sessionRef) return
