@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { StationBrandLogo } from './StationBrandLogo'
 import { NowPlayingScreen } from './NowPlayingScreen'
+import { useSessionListener } from './useListenerCount'
+import { logAppEvent } from './firebase'
 import './HomeScreen.css'
 
 import afrobeatImg from './assets/genres/afrobeat.svg'
@@ -456,6 +458,31 @@ export default function HomeScreen() {
   const playCandidateRef = useRef(null)
 
   useEffect(() => { currentRef.current = current }, [current])
+
+  /* ---------- Firebase listener tracking ----------
+   * Counts THIS browser tab as one active listener while a station
+   * is playing. trackPlay/trackStop are idempotent per tab, so
+   * calling them on every play/pause/switch is safe. */
+  const { trackPlay, trackStop } = useSessionListener()
+  const lastTrackedStationRef = useRef(null)
+
+  useEffect(() => {
+    if (isPlaying && current) {
+      trackPlay(current.stationuuid)
+      // Log a GA4 event only the first time a station starts (not on every resume)
+      if (lastTrackedStationRef.current !== current.stationuuid) {
+        lastTrackedStationRef.current = current.stationuuid
+        logAppEvent('station_listen', {
+          station_id: current.stationuuid,
+          station_name: current.name,
+          country: current.country || '',
+        })
+      }
+    }
+    return () => {
+      if (current) trackStop(current.stationuuid)
+    }
+  }, [isPlaying, current, trackPlay, trackStop])
 
   /* Sync volume with audio element */
   useEffect(() => {
@@ -1050,6 +1077,12 @@ export default function HomeScreen() {
               <div className="hs-more-row">
                 <span className="hs-info-key">Stream Quality</span>
                 <span className="hs-info-val">High (128 - 320 kbps)</span>
+              </div>
+              <div className="hs-more-row">
+                <span className="hs-info-key">Active Listeners</span>
+                <span className="hs-info-val">
+                  <span data-listener-count>0</span> now
+                </span>
               </div>
             </div>
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { StationBrandLogo } from './StationBrandLogo'
+import { useStationListener } from './useListenerCount'
 import './NowPlayingScreen.css'
 
 export function getCountryFlag(country = '') {
@@ -33,6 +34,9 @@ export function NowPlayingScreen({
     const timer = setTimeout(() => setToastMessage(''), 2200)
     return () => clearTimeout(timer)
   }, [toastMessage])
+
+  // Live "X listening now" count for this station (read-only subscription)
+  useStationListener(station ? station.stationuuid : null)
 
   if (!station) return null
 
@@ -147,6 +151,10 @@ export function NowPlayingScreen({
           <div className="np-live-badge">
             <span className="np-live-dot" />
             <span className="np-live-text">LIVE</span>
+            <span className="np-listeners" aria-live="polite">
+              <span data-station-listener-count={station.stationuuid}>0</span>
+              <span className="np-listeners-label">listening now</span>
+            </span>
           </div>
         </div>
 

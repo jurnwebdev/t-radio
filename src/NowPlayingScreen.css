@@ -229,6 +229,24 @@
   letter-spacing: 0.8px;
 }
 
+/* Live listener count pill */
+.np-listeners {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(239, 68, 68, 0.35);
+  font-size: 10px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.np-listeners-label {
+  color: #94A3B8;
+  font-weight: 500;
+}
+
 /* Waveform Visualizer */
 .np-visualizer {
   width: 100%;
