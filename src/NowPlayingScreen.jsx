@@ -35,6 +35,7 @@ export function NowPlayingScreen({
   onNextChannel,
   isLoading = false,
   notice = '',
+  lowBand = false,
 }) {
   const [toastMessage, setToastMessage] = useState('')
 
@@ -354,6 +355,12 @@ export function NowPlayingScreen({
               <span className="np-info-key">Source</span>
               <span className="np-info-val">Radio-Browser</span>
             </div>
+            {lowBand && (
+              <div className="np-info-row">
+                <span className="np-info-key">Mode</span>
+                <span className="np-info-val" style={{ color: 'var(--accent)' }}>Low bandwidth</span>
+              </div>
+            )}
           </div>
         </section>
 

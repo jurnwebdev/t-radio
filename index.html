@@ -2,11 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="icon" type="image/webp" href="/tradio-icon.webp" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#050B14" />
     <meta name="description" content="Stream Nigerian radio stations live — a PWA powered by the free Radio Browser API." />
     <title>T-Radio · Nigerian Online Radio</title>
+
+    <!-- Open Graph / social card: a shared ?station=<slug> link should
+         preview the station on WhatsApp, X, etc. The app rewrites these
+         tags at runtime for the station being played; the static ones
+         below are what crawlers read. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="T-Radio" />
+    <meta property="og:title" content="T-Radio · Nigerian Online Radio" />
+    <meta property="og:description" content="Stream Nigerian radio stations live. Tap to open T-Radio and start listening." />
+    <meta property="og:image" content="/tradio-logo.webp" />
+    <meta property="og:url" content="/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="T-Radio · Nigerian Online Radio" />
+    <meta name="twitter:description" content="Stream Nigerian radio stations live." />
+    <meta name="twitter:image" content="/tradio-logo.webp" />
   </head>
   <body>
     <div id="root"></div>

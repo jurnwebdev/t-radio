@@ -53,6 +53,28 @@ export function FallbackStationLogo({ name = 'Radio', size = 56 }) {
   )
 }
 
+/**
+ * Resolve the most usable station artwork URL.
+ * Tries favicon first, then a small set of known image paths for the
+ * curated Nigerian stations, then returns a fallback.
+ * This is a synchronous helper so it can be reused by <img> and <link>.
+ */
+export function resolveStationArt(station) {
+  if (!station) return null
+  const name = (station.name || '').toLowerCase()
+  const known = {
+    'cool fm': 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969.png',
+    'wazobia': 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951.png',
+    'nigeria info': 'https://nigeriainfofmlagos993-atunwadigital.streamguys1.com/nigeriainfofmlagos993.png',
+    'metro': 'https://go.webgateready.com/metrofm/logo.png',
+    'lagosjump': 'https://radio.lagosjumpradio.com/logo.png',
+    'bbc world': 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service.png',
+  }
+  const key = Object.keys(known).find((k) => name.includes(k))
+  if (key) return known[key]
+  return station.favicon || station.favicon_url || station.logo || null
+}
+
 export function StationBrandLogo({ station, size = 64 }) {
   const [imgError, setImgError] = useState(false)
   useEffect(() => { setImgError(false) }, [station?.stationuuid, station?.favicon])
@@ -261,8 +283,8 @@ export function StationBrandLogo({ station, size = 64 }) {
     )
   }
 
-  // If station has favicon and no error, load image
-  const favicon = station.favicon || station.favicon_url || station.logo
+  // If station has artwork and no error, load image
+  const favicon = resolveStationArt(station)
   if (favicon && !imgError) {
     return (
       <img

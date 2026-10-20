@@ -293,6 +293,13 @@
   z-index: 1;
 }
 
+/* T-Radio brand wordmark in the header (replaces the old wave + text) */
+.hs-brand-wordmark {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+
 .hs-hero-mic-img {
   width: 100%;
   height: 100%;
@@ -1238,6 +1245,55 @@
 
 .hs-more-btn:hover {
   background: var(--hover-strong);
+}
+
+/* ============ STREAM HEALTH NOTICE ============
+   Shown on the mini-player / Now Playing when the connection is
+   struggling (stall detected) or when low-bandwidth mode is active. */
+.hs-stream-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgb(var(--accent-rgb) / 0.08);
+  border: 1px solid rgb(var(--accent-rgb) / 0.25);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--heading);
+}
+
+.hs-stream-notice-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--hs-gold);
+  flex-shrink: 0;
+}
+
+.hs-stream-notice-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hs-stream-notice-action {
+  background: none;
+  border: 1px solid rgb(var(--accent-rgb) / 0.35);
+  color: var(--hs-gold);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.hs-stream-notice-action:hover {
+  background: rgb(var(--accent-rgb) / 0.12);
 }
 
 

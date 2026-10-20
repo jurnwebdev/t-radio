@@ -184,3 +184,16 @@ export function buildShareUrl(station, pool = [], origin = '') {
   if (!base || !slug) return base
   return `${base}/?station=${encodeURIComponent(slug)}`
 }
+
+/**
+ * Build a shareable genre deep link, e.g.
+ *   https://t-radio.app/?tag=afrobeat
+ * This opens the Explore tab pre-filtered to that genre pill.
+ */
+export function buildGenreLink(tag, origin = '') {
+  const base = String(
+    origin || (typeof window !== 'undefined' ? window.location.origin : ''),
+  ).replace(/\/+$/, '')
+  if (!base || !tag) return base
+  return `${base}/?tag=${encodeURIComponent(slugify(tag))}`
+}

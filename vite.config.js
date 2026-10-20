@@ -47,7 +47,7 @@ export default defineConfig({
     apiDevServer(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png'],
+      includeAssets: ['favicon.png', 'tradio-icon.webp', 'tradio-logo.webp'],
       manifest: {
         name: 'T-Radio · Nigerian Online Radio',
         short_name: 'T-Radio',
@@ -72,7 +72,7 @@ export default defineConfig({
       // Keep it lightweight: the default Workbox precache strategy caches the
       // app shell so the PWA loads instantly and works offline.
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
       },
     }),
   ],
