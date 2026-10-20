@@ -56,6 +56,9 @@ export default defineConfig({
         background_color: '#0b1020',
         display: 'standalone',
         start_url: '/',
+        launch_handler: {
+          client: 'best-match',
+        },
         icons: [
           {
             src: 'pwa-192x192.png',
