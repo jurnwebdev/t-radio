@@ -33,16 +33,14 @@ const LOWBAND_DEFAULT_KEY = 'tradio.lowband.default'
  * Radio is live, but a connection can quietly fall behind the broadcast:
  * a paused stream keeps serving audio that is no longer live, a stalled
  * connection freezes at whatever point it reached, and a relay may hand
- * out a backlog of old audio on connect. Chrome never skips ahead on its
- * own, so the cure is a fresh connection - a new connection always starts
- * at the live edge.
+ * out a backlog of old audio on connect. We only re-open a connection to
+ * recover from a genuine mid-playback stall (the broadcast goes silent for
+ * a while); we deliberately do NOT chase the live edge, because re-opening
+ * on the live edge is what made the radio stop and skip ahead mid-song.
  *   STALE_RESUME_MS    - paused longer than this -> reconnect on resume
- *   LIVE_EDGE_LIMIT_SEC - more audio buffered ahead of the play head than
- *                         this means we trail the broadcast -> reconnect
  *   LIVE_EDGE_STALL_MS  - stalled this long -> reconnect
  */
 const STALE_RESUME_MS = 8000
-const LIVE_EDGE_LIMIT_SEC = 8
 const LIVE_EDGE_STALL_MS = 8000
 const REJOIN_COOLDOWN_MS = 20000
 
@@ -998,40 +996,39 @@ export default function HomeScreen() {
   }, [])
 
   const rejoinLive = useCallback((reason) => {
+    // We only ever call this from a genuine stall, never for "catch up to
+    // the live edge". Re-opening on a stall is essential to recover from a
+    // broken connection; re-opening to chase the live edge just stops the
+    // user mid-song, so we skip that case.
+    if (reason !== 'stall') return
     const st = currentRef.current
     if (!st || !wantsPlayRef.current) return
     const now = Date.now()
     if (now - rejoinCooldownRef.current < REJOIN_COOLDOWN_MS) return
     // Safety valve: a stream that keeps going stale should not turn into
     // an endless reconnect loop.
-    if (reason !== 'start') {
-      if (rejoinCountRef.current >= 5) return
-      rejoinCountRef.current += 1
-    }
+    if (rejoinCountRef.current >= 5) return
+    rejoinCountRef.current += 1
     rejoinCooldownRef.current = now
-    if (reason !== 'start') {
-      showLiveNotice(reason === 'stall' ? 'Reconnecting…' : 'Rejoining live…')
-    }
     swappingRef.current = true
     resumeStream(st, { reload: true })
-  }, [resumeStream, showLiveNotice])
+  }, [resumeStream])
 
-  /* Re-open the connection a moment after a stream starts.
-   * A relay can hand the very first client a backlog of older audio, so
-   * the stream we land on would trail the broadcast. A fresh connection
-   * starts on the live edge - and because we do it before the first
-   * audio arrives, the handover is inaudible. */
+  /* Re-open the connection a moment after a stream starts ONLY if the
+   * relay handed the very first client a backlog of older audio (the
+   * "stall" case below still runs to catch genuine mid-stream freezes).
+   * We no longer chase the live edge on a fresh start — that was what
+   * made the radio stop and skip ahead mid-song. A new connection
+   * starts at the live edge naturally; re-opening it again right after
+   * just stops the audio the user just started listening to. */
   const scheduleStartRejoin = useCallback((st) => {
+    // Intentionally a no-op. The function is kept (and still called from
+    // startStation / restoreLastStation) so those call sites do not need
+    // to change. A genuine mid-playback stall is recovered by the
+    // `waiting`/`stalled` handlers, which call rejoinLive('stall').
     clearTimeout(startRejoinTimerRef.current)
-    startRejoinTimerRef.current = setTimeout(() => {
-      startRejoinTimerRef.current = null
-      const a = audioRef.current
-      if (!a || a.error) return
-      if (currentRef.current !== st || !wantsPlayRef.current) return
-      rejoinCooldownRef.current = 0
-      rejoinLive('start')
-    }, 400)
-  }, [rejoinLive])
+    startRejoinTimerRef.current = null
+  }, [])
 
   const startStation = useCallback((st) => {
     const a = audioRef.current
@@ -1174,8 +1171,11 @@ export default function HomeScreen() {
     const onEnded = () => {
       if (wantsPlayRef.current) resumeStream(currentRef.current, { reload: true })
     }
-    // A stream that stops delivering audio freezes the broadcast where it
-    // was. Re-open the connection once it has been silent for a while.
+    // A stream that stops delivering audio can freeze where it was. We
+    // recover from a genuine deadlock (the connection is actually broken)
+    // by re-opening it, but only after it has been silent for a while, and
+    // we do NOT chase the live edge otherwise - that just stops the user
+    // mid-song.
     const onWaiting = () => {
       clearTimeout(stallTimerRef.current)
       stallTimerRef.current = setTimeout(() => rejoinLive('stall'), LIVE_EDGE_STALL_MS)
@@ -1196,24 +1196,6 @@ export default function HomeScreen() {
       a.removeEventListener('stalled', onWaiting)
     }
   }, [resumeStream, rejoinLive])
-
-  /* ---------- Live edge watchdog ----------
-   * Chrome keeps roughly two seconds of audio for a healthy live stream,
-   * so a large lead between the buffered audio and the play head means we
-   * are trailing the broadcast. Re-opening the connection puts us back on
-   * the live edge. */
-  useEffect(() => {
-    if (!isPlaying) return undefined
-    const id = setInterval(() => {
-      const a = audioRef.current
-      if (!a || a.paused) return
-      const b = a.buffered
-      if (!b.length) return
-      const ahead = b.end(b.length - 1) - a.currentTime
-      if (ahead > LIVE_EDGE_LIMIT_SEC) rejoinLive()
-    }, 3000)
-    return () => clearInterval(id)
-  }, [isPlaying, rejoinLive])
 
   /* ---------- Restore last station on launch ----------
    * The station object is persisted (not just the id) so it can render
