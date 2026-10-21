@@ -503,3 +503,132 @@
   .dash-kpi-value { font-size: 19px }
   .dash-table-name { max-width: 100px }
 }
+
+/* ---------- Visits: when & where ---------- */
+.dash-visit-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dash-visit-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.dash-visit-kpi-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dash-visit-kpi-value {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-visit-kpi-where {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Today, by hour */
+.dash-hour-chart { margin-bottom: 10px }
+
+.dash-hour-title {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.dash-hour-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 44px;
+  padding-bottom: 12px;
+}
+
+.dash-hour-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.dash-hour-bar {
+  width: 100%;
+  min-height: 0;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.dash-hour-col:last-child .dash-hour-bar { border-radius: 2px }
+
+.dash-hour-tick {
+  position: absolute;
+  bottom: -11px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 7.5px;
+  font-weight: 700;
+  color: var(--sub);
+}
+
+/* Recent visits list */
+.dash-visits-list {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dash-visit-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: var(--hover);
+}
+
+.dash-visit-when {
+  font-weight: 700;
+  color: var(--text);
+  min-width: 52px;
+}
+
+.dash-visit-where {
+  font-weight: 500;
+  color: var(--sub);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

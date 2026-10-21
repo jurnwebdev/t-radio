@@ -115,7 +115,7 @@ export function useStatsCounters() {
   const [state, setState] = useState({ stats: null, ready: false, error: null })
   useEffect(() => {
     return subscribe(
-      STATS_ROOT,
+      `${STATS_ROOT}`,
       (data) => setState({ stats: data && typeof data === 'object' ? data : {}, ready: true, error: null }),
       (err) => setState({ stats: {}, ready: true, error: err.message }),
     )
@@ -190,4 +190,68 @@ export function useLastActiveByStation() {
     }
     return out
   }, [data, now])
+}
+
+/**
+ * The live "recent visits" index: `listeners/stats/visits`, one entry per
+ * page load for the last ~75 minutes. Each entry is
+ * { visitorId, day, country, countryCode, city, region } at key = ts.
+ *
+ * Returned as an array of { ts, ...entry } newest-first.
+ */
+export function useRecentVisits() {
+  const [data, setData] = useState(null)
+  useEffect(() => {
+    return subscribe(
+      `${STATS_ROOT}/visits`,
+      (d) => setData(d && typeof d === 'object' ? d : {}),
+      () => setData({}),
+    )
+  }, [])
+  return useMemo(() => {
+    if (!data) return null
+    return Object.keys(data)
+      .map((ts) => ({ ts: Number(ts), ...(data[ts] || {}) }))
+      .filter((v) => Number.isFinite(v.ts) && v.ts > 0)
+      .sort((a, b) => b.ts - a.ts)
+  }, [data])
+}
+
+/**
+ * Aggregate visits by country, from the daily buckets:
+ * listeners/stats/daily/{day}/byCountry/{CC} → { CC: count }.
+ * Counts unique devices per day; summed over the last N days a returning
+ * device is counted once per day (an undercount vs. total visits, which is
+ * the honest number for "how many distinct devices came from each place").
+ */
+export function useVisitsByCountry(days = 30) {
+  const [data, setData] = useState(null)
+  const [todayIdx, setTodayIdx] = useState(() => Math.floor(Date.now() / 86_400_000))
+
+  useEffect(() => {
+    const off = subscribe(
+      `${STATS_ROOT}/daily`,
+      (d) => setData(d && typeof d === 'object' ? d : {}),
+      () => setData({}),
+    )
+    const t = setInterval(() => setTodayIdx(Math.floor(Date.now() / 86_400_000)), 60_000)
+    return () => {
+      off()
+      clearInterval(t)
+    }
+  }, [])
+
+  return useMemo(() => {
+    if (!data) return null
+    const out = {}
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date((todayIdx - i) * 86_400_000).toISOString().slice(0, 10)
+      const byCountry = data[d]?.byCountry
+      if (!byCountry) continue
+      for (const [cc, n] of Object.entries(byCountry)) {
+        out[cc] = (out[cc] || 0) + (n || 0)
+      }
+    }
+    return out
+  }, [data, days, todayIdx])
 }

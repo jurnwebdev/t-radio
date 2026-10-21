@@ -1,4 +1,4 @@
-import { ref, runTransaction } from 'firebase/database'
+import { ref, runTransaction, set, update } from 'firebase/database'
 import { db, firebaseReady } from './firebase'
 
 /* ----------------------------------------------------------------
@@ -8,23 +8,31 @@ import { db, firebaseReady } from './firebase'
  * the one path the RTDB rules allow anonymous clients to write to.
  * The `stats/*` tree is locked (401) and must NOT be used.
  *
+ * All writes are fire-and-forget: tracking must never break playback.
+ *
  * Schema:
  *   listeners/stats/
- *     playsTotal               number
- *     plays/{stationId}        number
- *     stationMeta/{stationId} { name, country, tags }
- *     visitorsTotal            number
- *     visitorIds/{visitorId}   timestamp
+ *     playsTotal                number
+ *     plays/{stationId}         number
+ *     stationMeta/{stationId}   { name, country, tags }
+ *     visitorsTotal             number
+ *     visitorIds/{visitorId}    timestamp
+ *     visits/                   "live" recent-visit index — last 75 minutes,
+ *       {ts}                    one entry per visit: { visitorId, day,
+ *                                country, countryCode, city, region }
  *     daily/{YYYY-MM-DD}/
- *       visitors               number
- *       playsTotal            number
- *       plays/{stationId}     number
- *
- * All writes are fire-and-forget: tracking must never break playback.
- * ---------------------------------------------------------------- */
-
+ *       visitors                number
+ *       playsTotal              number
+ *       plays/{stationId}       number
+ *       byHour/{00-23}          number   visits in that UTC hour
+ *       byCountry/{code}        number   unique devices that visited that day
+ */
 const VKEY = 'tradio.visitorId'
 const STATS_ROOT = 'listeners/stats'
+
+/** Keep only the most recent N minutes of the live-visit index. */
+const LIVE_VISIT_WINDOW_MS = 75 * 60 * 1000
+const LIVE_VISIT_MAX = 1000
 
 function isReady() {
   return firebaseReady && !!db
@@ -122,6 +130,85 @@ export async function trackVisit() {
     try {
       localStorage.setItem(markKey, '1')
     } catch {}
+  }
+
+  await recordVisitTimestamp(id, day)
+}
+
+/**
+ * Record *when* and *where* this visit happened.
+ *
+ * Every page load appends one entry to `listeners/stats/visits/{ts}` (the
+ * "live" recent-visit index the dashboard streams). If it is the first
+ * visit today on this device, it also bumps `daily/{day}/byHour` and
+ * `byCountry` (the daily aggregates).
+ *
+ * Country/city come from /api/visit, which geolocates the request IP
+ * server-side. A failed geo lookup never blocks the timestamp.
+ */
+async function recordVisitTimestamp(id, day) {
+  if (!isReady()) return
+  const now = Date.now()
+  let geo = null
+  try {
+    const res = await fetch(
+      `/api/visit?id=${encodeURIComponent(id)}&b=${Math.floor(now / 20000)}`,
+      { headers: { Accept: 'application/json' } },
+    )
+    if (res.ok) geo = await res.json()
+  } catch {
+    geo = null
+  }
+
+  const entry = {
+    visitorId: id,
+    day,
+  }
+  const code = geo && geo.countryCode ? geo.countryCode : ''
+  if (code) {
+    entry.country = geo.country || ''
+    entry.countryCode = code
+    entry.city = geo.city || ''
+    entry.region = geo.region || ''
+  }
+
+  try {
+    await set(
+      ref(db, `${STATS_ROOT}/visits/${now}`),
+      entry,
+    )
+    pruneVisitsIndex(now)
+  } catch (err) {
+    console.warn('[T-Radio] visit index write failed:', err.message)
+  }
+
+  // Daily aggregates, first visit of the day only.
+  let firstOfDay = false
+  try {
+    firstOfDay = localStorage.getItem(`tradio.visited.${day}`) !== '1'
+  } catch {}
+  if (firstOfDay) {
+    const hour = new Date(now).getUTCHours().toString().padStart(2, '0')
+    await bump(`daily/${day}/byHour/${hour}`, 1)
+    if (code) await bump(`daily/${day}/byCountry/${code}`, 1)
+  }
+}
+
+/** Keep the live-visit index bounded: drop entries older than the window. */
+async function pruneVisitsIndex(now) {
+  if (!isReady()) return
+  const cutoff = now - LIVE_VISIT_WINDOW_MS
+  const r = ref(db, `${STATS_ROOT}/visits`)
+  try {
+    const snap = await r.get()
+    const updates = {}
+    for (const key of snap.val() || {}) {
+      const ts = Number(key)
+      if (Number.isFinite(ts) && ts < cutoff) updates[key] = null
+    }
+    if (Object.keys(updates).length) await update(ref(db, `${STATS_ROOT}/visits`), updates)
+  } catch {
+    /* pruning is best-effort; the window simply stays a little large */
   }
 }
 

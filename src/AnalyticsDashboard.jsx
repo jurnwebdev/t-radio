@@ -15,6 +15,8 @@ import {
   useStatsCounters,
   useDailySeries,
   useLastActiveByStation,
+  useRecentVisits,
+  useVisitsByCountry,
 } from './useAnalyticsStats'
 import './AnalyticsDashboard.css'
 
@@ -201,6 +203,8 @@ export default function AnalyticsDashboard({ onBack, onLock }) {
   const { stats, ready, error } = useStatsCounters() // { playsTotal, visitorsTotal, plays, stationMeta, daily?, ... }
   const { series: daily } = useDailySeries(TREND_DAYS)
   const lastActive = useLastActiveByStation()
+  const recentVisits = useRecentVisits()
+  const countryCounts = useVisitsByCountry(30)
 
   const totalPlays = stats?.playsTotal || 0
   const totalVisitors = stats?.visitorsTotal || 0
@@ -284,6 +288,45 @@ export default function AnalyticsDashboard({ onBack, onLock }) {
   }, [byStation, stats])
 
   const liveNowMax = liveNowRows[0]?.value || 0
+
+  /* ---- visits: when & where ---- */
+  const visitsDerived = useMemo(() => {
+    if (!recentVisits) return null
+    const hourAgo = Date.now() - 3600_000
+    const withinHour = recentVisits.filter((v) => v.ts >= hourAgo)
+    const byCountryLive = {}
+    for (const v of withinHour) {
+      const cc = v.countryCode || (v.country ? '??' : '')
+      if (cc) byCountryLive[cc] = (byCountryLive[cc] || 0) + 1
+    }
+    const last = recentVisits[0] || null
+    const topCountriesLive = Object.entries(byCountryLive).sort((a, b) => b[1] - a[1])
+    return { withinHour, topCountriesLive, last }
+  }, [recentVisits])
+
+  const topCountries = useMemo(() => {
+    if (!countryCounts) return []
+    return Object.entries(countryCounts)
+      .map(([k, n]) => {
+        let total = 0
+        if (typeof n === 'number') total = n
+        else if (n && typeof n === 'object') total = Object.values(n).reduce((a, b) => a + (Number(b) || 0), 0)
+        return { cc: k, n: total }
+      })
+      .filter((c) => c.n > 0)
+      .slice(0, 8)
+  }, [countryCounts])
+
+  const todayByHour = useMemo(() => {
+    // byHour values are read through the whole-stats subscription, so they
+    // live at stats.daily[day].byHour (NOT under a top-level "daily" key —
+    // that would be the nested daily/daily path, which does not exist).
+    const today = daily?.[daily.length - 1]
+    if (!today) return null
+    return stats?.daily?.[today.date]?.byHour || null
+  }, [daily, stats])
+
+  const hourChartMax = todayByHour ? Math.max(1, ...Object.values(todayByHour)) : 1
 
   return (
     <div className="dash-screen">
@@ -418,6 +461,100 @@ export default function AnalyticsDashboard({ onBack, onLock }) {
               <TrendChart series={daily} range={range} />
             </section>
 
+            {/* ---- Visits: when & where ---- */}
+            <section className="dash-card" aria-label="Visits — when and where">
+              <h2 className="dash-card-title">
+                Visits — when &amp; where <span className="dash-live-tag">LIVE</span>
+              </h2>
+
+              {visitsDerived ? (
+                <>
+                  <div className="dash-visit-kpis">
+                    <div className="dash-visit-kpi">
+                      <span className="dash-visit-kpi-label">Last hour</span>
+                      <span className="dash-visit-kpi-value">{fmt(visitsDerived.withinHour.length)}</span>
+                    </div>
+                    <div className="dash-visit-kpi">
+                      <span className="dash-visit-kpi-label">Unique devices · 30d</span>
+                      <span className="dash-visit-kpi-value">
+                        {topCountries.reduce((s, c) => s + c.n, 0)}
+                      </span>
+                    </div>
+                    <div className="dash-visit-kpi">
+                      <span className="dash-visit-kpi-label">Last visit</span>
+                      <span className="dash-visit-kpi-value">{visitsDerived.last ? timeAgo(visitsDerived.last.ts) : '—'}</span>
+                      {visitsDerived.last?.country && (
+                        <span className="dash-visit-kpi-where">
+                          {visitsDerived.last.country}{visitsDerived.last.city ? `, ${visitsDerived.last.city}` : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Today, by hour (UTC) */}
+                  {todayByHour ? (
+                    <div className="dash-hour-chart" aria-label="Visits today, by hour">
+                      <div className="dash-hour-title">Today · by hour (UTC)</div>
+                      <div className="dash-hour-bars">
+                        {Array.from({ length: 24 }, (_, h) => {
+                          const v = todayByHour[String(h).padStart(2, '0')] || 0
+                          return (
+                            <div key={h} className="dash-hour-col" title={`${String(h).padStart(2, '0')}:00 — ${v} visit${v === 1 ? '' : 's'}`}>
+                              <div
+                                className="dash-hour-bar"
+                                style={{ height: `${Math.round((v / hourChartMax) * 100)}%` }}
+                              />
+                              <span className="dash-hour-tick">{h % 4 === 0 ? h : ''}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="dash-empty">No visit hours recorded today yet.</div>
+                  )}
+
+                  {/* Top countries, last 30 days */}
+                  {topCountries.length ? (
+                    <div className="dash-bars">
+                      {topCountries.map(({ cc, n }, i) => (
+                        <BarRow
+                          key={cc}
+                          rank={i + 1}
+                          name={cc}
+                          value={n}
+                          max={topCountries[0].n}
+                          sub={`${Math.round((n / Math.max(1, topCountries.reduce((s, c) => s + c.n, 0))) * 100)}% of 30d`}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="dash-empty">No countries recorded yet.</div>
+                  )}
+
+                  {/* Recent visits list */}
+                  {recentVisits.length > 0 && (
+                    <div className="dash-visits-list">
+                      {recentVisits.slice(0, 6).map((v) => (
+                        <div key={v.ts} className="dash-visit-row">
+                          <span className="dash-visit-when">{timeAgo(v.ts)}</span>
+                          <span className="dash-visit-where">
+                            {v.country || v.countryCode
+                              ? `${v.country || v.countryCode}${v.city ? ' · ' + v.city : ''}`
+                              : 'unknown location'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="dash-skeletons" aria-busy="true">
+                  <div className="dash-card-skel" />
+                </div>
+              )}
+            </section>
+
             {/* ---- Station table ---- */}
             <section className="dash-card" aria-label="Station table">
               <h2 className="dash-card-title">All stations</h2>
@@ -452,6 +589,9 @@ export default function AnalyticsDashboard({ onBack, onLock }) {
               undercounting. "Visitors" are unique devices (localStorage), not
               GA4 users. Data lives in <code>listeners/stats</code> (the
               top-level <code>stats</code> tree is locked by RTDB rules).
+              Visits show <strong>country + city only</strong> (aggregated
+              from the visitor's IP, server-side — no coordinates, no raw
+              IPs are stored). All times shown are UTC.
             </p>
           </>
         )}
