@@ -582,6 +582,43 @@ const EXPLORE_NAIJA_NEW = [
     url_resolved: 'https://mpc.my-control-panel.eu/stream/8138',
     votes: 32,
   },
+  /* ---------- Batch 3: official station sites (scraped + verified 2026-10-30) ---------- */
+  {
+    stationuuid: 'new-coolfmabuja',
+    name: 'Cool FM 96.9 Abuja',
+    country: 'Nigeria',
+    city: 'Abuja',
+    tags: 'Afrobeats, Hits, Talk',
+    url: 'https://coolfmabuja969-atunwadigital.streamguys1.com/coolfmabuja969',
+    url_resolved: 'https://coolfmabuja969-atunwadigital.streamguys1.com/coolfmabuja969',
+  },
+  {
+    stationuuid: 'new-coolfmkano',
+    name: 'Cool FM 96.9 Kano',
+    country: 'Nigeria',
+    city: 'Kano',
+    tags: 'Afrobeats, Hits, Hausa',
+    url: 'https://coolfmkano969-atunwadigital.streamguys1.com/coolfmkano969',
+    url_resolved: 'https://coolfmkano969-atunwadigital.streamguys1.com/coolfmkano969',
+  },
+  {
+    stationuuid: 'new-beatfmabuja',
+    name: 'The Beat 97.9 FM Abuja',
+    country: 'Nigeria',
+    city: 'Abuja',
+    tags: 'Afrobeats, Hip Hop, Urban',
+    url: 'https://beatfmabuja-atunwadigital.streamguys1.com/beatfmabuja',
+    url_resolved: 'https://beatfmabuja-atunwadigital.streamguys1.com/beatfmabuja',
+  },
+  {
+    stationuuid: 'new-brilafm',
+    name: 'Brila FM 88.9',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Sports, Talk, News',
+    url: 'https://brilafm-atunwadigital.streamguys1.com/brilafm',
+    url_resolved: 'https://brilafm-atunwadigital.streamguys1.com/brilafm',
+  },
 ]
 
 /* ---------- New-station badge ----------
@@ -610,6 +647,10 @@ const NEW_STATION_IDS = new Set([
   'new-softlife',
   'new-goradio',
   'new-vybz945',
+  'new-coolfmabuja',
+  'new-coolfmkano',
+  'new-beatfmabuja',
+  'new-brilafm',
 ])
 
 function isNewStation(st) {
