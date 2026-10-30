@@ -1060,6 +1060,7 @@
 }
 
 .hs-explore-row-art {
+  position: relative;
   width: 52px;
   height: 52px;
   border-radius: 14px;
@@ -1393,3 +1394,10 @@
   height: 22px;
   font-size: 14px;
 }
+
+/* ---------- NEW badge (freshly added stations) ---------- */
+.hs-new-badge {
+  position: absolute; top: 6px; left: 6px; z-index: 2; background: #1DB954; color: #fff; font-size: 8px; font-weight: 800; letter-spacing: 0.5px; padding: 2px 5px; border-radius: 5px; line-height: 1.2; pointer-events: none; }
+
+.hs-pop-cover {
+  position: relative; }

@@ -473,6 +473,31 @@ const EXPLORE_NAIJA_NEW = [
   },
 ]
 
+/* ---------- New-station badge ----------
+ * The freshly added Nigerian channels carry isNew so cards can show a
+ * "NEW" chip until the next curation round. Keep in sync with
+ * EXPLORE_NAIJA_NEW below. */
+const NEW_STATION_IDS = new Set([
+  'new-gospelmusic',
+  'new-radioeast',
+  'new-majorfm',
+  'new-splashfm',
+  'new-urbanenugu',
+  'new-informme',
+  'new-gospotainment',
+  'new-nagari',
+  'new-afrogospel',
+  'new-yesfm',
+])
+
+function isNewStation(st) {
+  return !!(st && NEW_STATION_IDS.has(st.stationuuid))
+}
+
+function NewBadge() {
+  return <span className="hs-new-badge">NEW</span>
+}
+
 /* ---------- Explore Curated Afrobeats (Mockup Screen 3) ---------- */
 const EXPLORE_AFROBEATS = [
   {
@@ -635,6 +660,7 @@ function ExploreStationRow({ station, isPlaying, onPlay, isFav, onToggleFav }) {
       <div className="hs-explore-row-left">
         <div className="hs-explore-row-art">
           <StationBrandLogo station={station} size={52} />
+          {isNewStation(station) && <NewBadge />}
         </div>
         <div className="hs-explore-row-info">
           <h4 className="hs-explore-row-name" title={station.name}>
@@ -2261,6 +2287,7 @@ export default function HomeScreen() {
                     >
                       <div className="hs-pop-cover">
                         <StationBrandLogo station={st} size={80} />
+                        {isNewStation(st) && <NewBadge />}
                         {isCurrent && isPlaying && (
                           <span className="hs-pop-live">
                             <span className="hs-live-dot" />
