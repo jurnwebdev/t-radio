@@ -7,6 +7,7 @@ import { useMediaSession } from './useMediaSession'
 import { trackVisit, trackStatsPlay } from './useStatsTracker'
 import { logAppEvent } from './firebase'
 import { findStationBySlug, buildShareUrl, stationSlug } from './stationSlug'
+import Hls from 'hls.js'
 import { setShareOgMeta } from './shareOg'
 import { usePwaInstall } from './usePwaInstall'
 import './HomeScreen.css'
@@ -50,6 +51,24 @@ const REJOIN_COOLDOWN_MS = 20000
  * failure - the new source takes over. */
 function isAbortError(err) {
   return !!err && err.name === 'AbortError'
+}
+
+/* ---------- HLS (m3u8) playback ----------
+ * Some stations (notably the BBC) only publish HLS playlists. Safari
+ * plays those natively; Chrome/Android/Firefox need hls.js, which feeds
+ * the audio element through Media Source Extensions. attachSource()
+ * picks the right path per URL and tears down any previous HLS session
+ * so station switches never leak a live connection. */
+function isHlsUrl(url) {
+  return /\.m3u8([?#]|$)/i.test(String(url || ''))
+}
+
+function canPlayNativeHls(a) {
+  return !!(
+    a &&
+    (a.canPlayType('application/vnd.apple.mpegurl') ||
+      a.canPlayType('application/x-mpegurl'))
+  )
 }
 
 /* ---------- Low-bandwidth / stream health ----------
@@ -358,8 +377,8 @@ const EXPLORE_AFROBEATS = [
     country: 'Nigeria',
     city: 'Lagos',
     tags: 'Afrobeats, Hip Hop',
-    url: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
-    url_resolved: 'https://coolfmlagos969-atunwadigital.streamguys1.com/coolfmlagos969',
+    url: 'https://beatfmlagos-atunwadigital.streamguys1.com/beatfmlagos',
+    url_resolved: 'https://beatfmlagos-atunwadigital.streamguys1.com/beatfmlagos',
   },
   {
     stationuuid: 'exp-naija',
@@ -367,8 +386,8 @@ const EXPLORE_AFROBEATS = [
     country: 'Nigeria',
     city: 'Lagos',
     tags: 'Afrobeats, Talk',
-    url: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
-    url_resolved: 'https://wazobiafmlagos951-atunwadigital.streamguys1.com/wazobiafmlagos951',
+    url: 'https://naijafmlagos-atunwadigital.streamguys1.com/naijafmlagos',
+    url_resolved: 'https://naijafmlagos-atunwadigital.streamguys1.com/naijafmlagos',
   },
   {
     stationuuid: 'curated-coolfm',
@@ -425,8 +444,8 @@ const EXPLORE_INTERNATIONAL = [
     country: 'United Kingdom',
     city: 'London',
     tags: 'Pop, Chart',
-    url: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
-    url_resolved: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
+    url: 'http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d320000.norewind.m3u8',
+    url_resolved: 'http://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d320000.norewind.m3u8',
   },
   {
     stationuuid: 'curated-capital',
@@ -443,8 +462,8 @@ const EXPLORE_INTERNATIONAL = [
     country: 'United Kingdom',
     city: 'London',
     tags: 'R&B, Hip Hop',
-    url: 'https://icecast.thisisdax.com/HeartLondonMP3',
-    url_resolved: 'https://icecast.thisisdax.com/HeartLondonMP3',
+    url: 'https://live-kiss.sharp-stream.com/kiss100.mp3',
+    url_resolved: 'https://live-kiss.sharp-stream.com/kiss100.mp3',
   },
   {
     stationuuid: 'exp-rfi',
@@ -621,6 +640,7 @@ export default function HomeScreen() {
   })
 
   const audioRef = useRef(null)
+  const hlsRef = useRef(null)
   const candidatesRef = useRef([])
   const currentRef = useRef(null)
   const playCandidateRef = useRef(null)
@@ -918,8 +938,7 @@ export default function HomeScreen() {
     }
     const nextUrl = remaining.shift()
     candidatesRef.current = [...remaining]
-    a.src = nextUrl
-    a.load()
+    attachSource(a, nextUrl)
     const p = a.play()
     if (p !== undefined) {
       p.then(() => {
@@ -943,9 +962,47 @@ export default function HomeScreen() {
     }
   }, [])
 
+  const attachSource = useCallback((a, url) => {
+    // Tear down any previous HLS session before attaching a new source.
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
+    if (isHlsUrl(url) && !canPlayNativeHls(a) && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true, liveSyncDurationCount: 3 })
+      hlsRef.current = hls
+      hls.on(Hls.Events.ERROR, (_evt, data) => {
+        if (!data || !data.fatal) return
+        hls.destroy()
+        hlsRef.current = null
+        // Same fallback contract as the audio element's error handler:
+        // try the next candidate URL, else surface the failure.
+        if (candidatesRef.current.length > 0) playCandidateRef.current()
+        else {
+          setIsPlaying(false)
+          setIsPaused(false)
+          setError(`Stream "${(currentRef.current || {}).name || 'station'}" unavailable`)
+        }
+      })
+      hls.loadSource(url)
+      hls.attachMedia(a)
+      return
+    }
+    a.src = url
+    a.load()
+  }, [])
+
   useEffect(() => {
     playCandidateRef.current = playCandidate
   }, [playCandidate])
+
+  // Release the HLS session when the screen unmounts.
+  useEffect(() => () => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy()
+      hlsRef.current = null
+    }
+  }, [])
 
   /* Reconnect to the live edge and resume playback. Used after an OS
    * interruption (phone call, another app grabbing the audio session,
@@ -963,8 +1020,7 @@ export default function HomeScreen() {
     if (reload) {
       const [first, ...rest] = urls
       candidatesRef.current = rest
-      a.src = first
-      a.load()
+      attachSource(a, first)
     }
     const playPromise = a.play()
     if (playPromise !== undefined) {
@@ -1068,9 +1124,8 @@ export default function HomeScreen() {
       localStorage.setItem(LAST_STATION_KEY, JSON.stringify(st))
     } catch {}
 
-    // Synchronously set src within the user gesture context
-    a.src = first
-    a.load()
+    // Synchronously attach the source within the user gesture context
+    attachSource(a, first)
     // Re-open the connection shortly after, so we start on the live edge.
     scheduleStartRejoin(st)
     const playPromise = a.play()
@@ -1225,8 +1280,7 @@ export default function HomeScreen() {
     currentRef.current = saved
     setCurrent(saved)
     wantsPlayRef.current = true
-    a.src = first
-    a.load()
+    attachSource(a, first)
     scheduleStartRejoin(saved)
     const playPromise = a.play()
     if (playPromise !== undefined) {

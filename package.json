@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "firebase": "^13.0.0",
+    "hls.js": "^1.7.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "vite-plugin-pwa": "^2.0.0"
