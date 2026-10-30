@@ -369,6 +369,110 @@ function HeroMicGraphic() {
 /* ---------- Explore Category Filter Pills ---------- */
 const EXPLORE_PILLS = ['All', 'Music', 'News', 'Talk', 'Sports', 'Afrobeats', 'Gospel']
 
+/* ---------- New Nigerian stations (verified 2026-10-30, see docs/new-nigerian-stations.md) ---------- */
+const EXPLORE_NAIJA_NEW = [
+  {
+    stationuuid: 'new-gospelmusic',
+    name: 'Nigerian Gospel Music Radio',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Gospel, Christian, Music',
+    url: 'https://stream.zeno.fm/3fmqr74a7f8uv',
+    url_resolved: 'https://stream.zeno.fm/3fmqr74a7f8uv',
+    votes: 2810,
+  },
+  {
+    stationuuid: 'new-radioeast',
+    name: 'Radio East',
+    country: 'Nigeria',
+    city: 'Enugu',
+    tags: 'Music, Talk, Igbo',
+    url: 'https://stream.zeno.fm/7f4w4us5wp8uv',
+    url_resolved: 'https://stream.zeno.fm/7f4w4us5wp8uv',
+    votes: 2095,
+  },
+  {
+    stationuuid: 'new-majorfm',
+    name: 'MajorFM',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Afrobeats, Hip Hop, Urban',
+    url: 'https://stream.zeno.fm/pkza99xshkhvv',
+    url_resolved: 'https://stream.zeno.fm/pkza99xshkhvv',
+    votes: 1907,
+  },
+  {
+    stationuuid: 'new-splashfm',
+    name: 'Splash FM 105.5',
+    country: 'Nigeria',
+    city: 'Ibadan',
+    tags: 'Music, Talk, Hits',
+    url: 'https://edge.mixlr.com/channel/cfeki',
+    url_resolved: 'https://edge.mixlr.com/channel/cfeki',
+    votes: 1872,
+  },
+  {
+    stationuuid: 'new-urbanenugu',
+    name: 'Urban Radio Enugu',
+    country: 'Nigeria',
+    city: 'Enugu',
+    tags: 'Urban, Music, Talk',
+    url: 'https://edge.mixlr.com/channel/cfldr',
+    url_resolved: 'https://edge.mixlr.com/channel/cfldr',
+    votes: 1504,
+  },
+  {
+    stationuuid: 'new-informme',
+    name: 'Inform Me Radio',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Talk, Business, News',
+    url: 'https://stream.zeno.fm/ta1fke6sz1zuv',
+    url_resolved: 'https://stream.zeno.fm/ta1fke6sz1zuv',
+    votes: 1459,
+  },
+  {
+    stationuuid: 'new-gospotainment',
+    name: 'Gospotainment Radio',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Gospel, Afrobeats, Christian',
+    url: 'https://radio.gotright.net/radio/8000/radio.mp3',
+    url_resolved: 'https://radio.gotright.net/radio/8000/radio.mp3',
+    votes: 1146,
+  },
+  {
+    stationuuid: 'new-nagari',
+    name: 'Nagari Radio',
+    country: 'Nigeria',
+    city: 'Kaduna',
+    tags: 'Hausa, Talk, Music',
+    url: 'https://stream.zeno.fm/287z97ksdg8uv',
+    url_resolved: 'https://stream.zeno.fm/287z97ksdg8uv',
+    votes: 1099,
+  },
+  {
+    stationuuid: 'new-afrogospel',
+    name: 'Afrobeats Gospel Radio',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Gospel, Afrobeats, Christian',
+    url: 'https://stream.zeno.fm/zyd9stmdlnlvv',
+    url_resolved: 'https://stream.zeno.fm/zyd9stmdlnlvv',
+    votes: 972,
+  },
+  {
+    stationuuid: 'new-yesfm',
+    name: 'Yes FM 101.7',
+    country: 'Nigeria',
+    city: 'Lagos',
+    tags: 'Music, Hits, Talk',
+    url: 'https://stream.zeno.fm/kqgbf9g3mfhvv',
+    url_resolved: 'https://stream.zeno.fm/kqgbf9g3mfhvv',
+    votes: 922,
+  },
+]
+
 /* ---------- Explore Curated Afrobeats (Mockup Screen 3) ---------- */
 const EXPLORE_AFROBEATS = [
   {
@@ -1356,7 +1460,7 @@ export default function HomeScreen() {
   /* ---------- Explore Filtered List ---------- */
   const filteredExploreList = useMemo(() => {
     const q = exploreSearch.trim().toLowerCase()
-    const all = [...EXPLORE_AFROBEATS, ...EXPLORE_INTERNATIONAL, ...stations]
+    const all = [...EXPLORE_AFROBEATS, ...EXPLORE_NAIJA_NEW, ...EXPLORE_INTERNATIONAL, ...stations]
     const seen = new Set()
     const deduped = []
     for (const st of all) {
@@ -1396,7 +1500,7 @@ export default function HomeScreen() {
 
   /* ---------- All Known Stations (Curated + Loaded) ---------- */
   const allKnownStations = useMemo(() => {
-    const list = [...CURATED_POPULAR, ...EXPLORE_AFROBEATS, ...EXPLORE_INTERNATIONAL, ...stations]
+    const list = [...CURATED_POPULAR, ...EXPLORE_AFROBEATS, ...EXPLORE_NAIJA_NEW, ...EXPLORE_INTERNATIONAL, ...stations]
     const map = new Map()
     for (const st of list) {
       if (st && st.stationuuid && !map.has(st.stationuuid)) {
@@ -1531,7 +1635,7 @@ export default function HomeScreen() {
     if (!selectedGenre) return []
     const tag = selectedGenre.tag.toLowerCase()
     const q = genreSearch.trim().toLowerCase()
-    const all = [...CURATED_POPULAR, ...EXPLORE_AFROBEATS, ...EXPLORE_INTERNATIONAL, ...stations]
+    const all = [...CURATED_POPULAR, ...EXPLORE_AFROBEATS, ...EXPLORE_NAIJA_NEW, ...EXPLORE_INTERNATIONAL, ...stations]
     const seen = new Set()
     const deduped = []
     for (const st of all) {
